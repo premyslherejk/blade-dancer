@@ -18,6 +18,7 @@ type Enemy = {
   type: EnemyType;
   facing: number;
   shootCd: number;
+  fuse: number; // bomber: >0 means armed, counts down to 0 then explodes
 };
 type Wall = { x: number; y: number; w: number; h: number };
 type Barrel = { pos: Vec; alive: boolean; radius: number };
