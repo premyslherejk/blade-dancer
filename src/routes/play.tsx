@@ -7,18 +7,25 @@ export const Route = createFileRoute("/play")({
 
 /* ---------- Types ---------- */
 type Vec = { x: number; y: number };
-type EnemyType = "grunt" | "brute" | "archer" | "shielder" | "bomber";
+type EnemyType = "grunt" | "brute" | "archer" | "shielder" | "bomber" | "boss";
 type Enemy = {
   id: number;
   pos: Vec;
   vel: Vec;
   hp: number;
+  maxHp: number;
   alive: boolean;
   hitFlash: number;
   type: EnemyType;
   facing: number;
   shootCd: number;
   fuse: number; // bomber: >0 means armed, counts down to 0 then explodes
+  // boss-only
+  slamCd: number;
+  slamCharge: number; // ms remaining on telegraph
+  slamPos: Vec;
+  volleyCd: number;
+  phase: number; // enrage phase (0 or 1)
 };
 type Wall = { x: number; y: number; w: number; h: number };
 type Barrel = { pos: Vec; alive: boolean; radius: number };
@@ -135,6 +142,91 @@ const LEVELS: LevelDef[] = [
     spikes: [{ x: 220, y: 520 }],
   },
 ];
+
+
+const LEVEL_IV: LevelDef = {
+  name: "IV · The Gauntlet",
+  subtitle: "Everything they can throw at you",
+  intro: "A mix of foes. Chain dashes — use barrels to clear crowds.",
+  playerStart: { x: ARENA_W / 2, y: ARENA_H - 90 },
+  walls: [
+    ...OUTER,
+    { x: 60, y: 150, w: 22, h: 130 },
+    { x: 358, y: 150, w: 22, h: 130 },
+    { x: 120, y: 360, w: 200, h: 22 },
+    { x: 60, y: 520, w: 22, h: 130 },
+    { x: 358, y: 520, w: 22, h: 130 },
+  ],
+  enemies: [
+    { x: 130, y: 110, type: "archer" },
+    { x: 310, y: 110, type: "archer" },
+    { x: 220, y: 200, type: "shielder" },
+    { x: 110, y: 300, type: "bomber" },
+    { x: 330, y: 300, type: "bomber" },
+    { x: 220, y: 440, type: "brute" },
+    { x: 110, y: 600, type: "grunt" },
+    { x: 330, y: 600, type: "grunt" },
+    { x: 220, y: 680, type: "brute" },
+  ],
+  barrels: [{ x: 220, y: 140 }, { x: 220, y: 320 }, { x: 220, y: 560 }],
+  spikes: [{ x: 110, y: 440 }, { x: 330, y: 440 }],
+};
+
+const LEVEL_V: LevelDef = {
+  name: "V · Crossfire",
+  subtitle: "No safe corner remains",
+  intro: "Archers hold every corner. Break the line before their volleys land.",
+  playerStart: { x: ARENA_W / 2, y: ARENA_H - 80 },
+  walls: [
+    ...OUTER,
+    { x: 160, y: 180, w: 120, h: 22 },
+    { x: 20, y: 320, w: 100, h: 22 },
+    { x: 320, y: 320, w: 100, h: 22 },
+    { x: 160, y: 460, w: 120, h: 22 },
+    { x: 20, y: 600, w: 100, h: 22 },
+    { x: 320, y: 600, w: 100, h: 22 },
+  ],
+  enemies: [
+    { x: 60, y: 90, type: "archer" },
+    { x: 380, y: 90, type: "archer" },
+    { x: 220, y: 130, type: "shielder" },
+    { x: 60, y: 260, type: "archer" },
+    { x: 380, y: 260, type: "archer" },
+    { x: 220, y: 400, type: "bomber" },
+    { x: 220, y: 540, type: "shielder" },
+    { x: 60, y: 680, type: "brute" },
+    { x: 380, y: 680, type: "brute" },
+    { x: 220, y: 700, type: "grunt" },
+  ],
+  barrels: [{ x: 220, y: 260 }, { x: 220, y: 620 }],
+  spikes: [{ x: 220, y: 340 }, { x: 220, y: 480 }],
+};
+
+const LEVEL_BOSS: LevelDef = {
+  name: "VI · The Warlord",
+  subtitle: "Boss — Iron Warlord of the Ash",
+  intro: "The Warlord slams the ground and fires radial arcs. Dash between telegraphs and strike his back. He enrages below half HP.",
+  playerStart: { x: ARENA_W / 2, y: ARENA_H - 80 },
+  walls: [
+    ...OUTER,
+    { x: 30, y: 260, w: 80, h: 22 },
+    { x: 330, y: 260, w: 80, h: 22 },
+    { x: 30, y: 500, w: 80, h: 22 },
+    { x: 330, y: 500, w: 80, h: 22 },
+  ],
+  enemies: [
+    { x: ARENA_W / 2, y: 200, type: "boss" },
+    { x: 90, y: 640, type: "grunt" },
+    { x: 350, y: 640, type: "grunt" },
+    { x: 220, y: 620, type: "bomber" },
+  ],
+  barrels: [{ x: 80, y: 400 }, { x: 360, y: 400 }],
+  spikes: [{ x: 220, y: 400 }],
+};
+
+LEVELS.push(LEVEL_IV, LEVEL_V, LEVEL_BOSS);
+
+
 
 function PlayPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -271,10 +363,12 @@ function PlayPage() {
     }
     setCarryHp(Math.max(1, hp));
     setCarryGold(gold);
-    setLevelIdx(levelIdx + 1);
+    const next = levelIdx + 1;
+    setLevelIdx(next);
     setVictory(false);
     setDefeat(false);
     setPaused(false);
+    if (LEVELS[next]?.intro) setShowTutorial(true);
   };
 
   const current = LEVELS[levelIdx];
@@ -537,23 +631,30 @@ function createLevelState(idx: number, carryHp: number, carryGold: number): Game
 }
 
 function mkEnemy(id: number, x: number, y: number, type: EnemyType): Enemy {
-  const hpMap: Record<EnemyType, number> = { grunt: 1, brute: 2, archer: 1, shielder: 3, bomber: 1 };
+  const hpMap: Record<EnemyType, number> = { grunt: 1, brute: 2, archer: 1, shielder: 3, bomber: 1, boss: 14 };
   return {
     id,
     pos: { x, y },
     vel: { x: 0, y: 0 },
     hp: hpMap[type],
+    maxHp: hpMap[type],
     alive: true,
     hitFlash: 0,
     type,
     facing: Math.PI / 2,
     shootCd: type === "archer" ? 1200 + Math.random() * 800 : 0,
     fuse: 0,
+    slamCd: 2600,
+    slamCharge: 0,
+    slamPos: { x, y },
+    volleyCd: 3400,
+    phase: 0,
   };
 }
 
 function goldFor(type: EnemyType) {
   switch (type) {
+    case "boss": return 250;
     case "brute": return 25;
     case "shielder": return 30;
     case "archer": return 20;
@@ -561,6 +662,7 @@ function goldFor(type: EnemyType) {
     default: return 10;
   }
 }
+
 
 /* ================= SIMULATION ================= */
 
@@ -647,8 +749,10 @@ function step(s: GameState, dtMsReal: number) {
             continue;
           }
         }
+        // Boss: i-frames to avoid multi-hit per dash
+        if (e.type === "boss" && e.hitFlash > 0) continue;
         e.hp -= 1;
-        e.hitFlash = 200;
+        e.hitFlash = e.type === "boss" ? 260 : 200;
         s.shake = Math.max(s.shake, 10);
         spawnHitBurst(s, e.pos);
         if (e.hp <= 0) {
@@ -656,6 +760,11 @@ function step(s: GameState, dtMsReal: number) {
           s.gold += goldFor(e.type);
           spawnDeathBurst(s, e.pos);
           if (e.type === "bomber") explodeAt(s, e.pos, 78, true);
+          if (e.type === "boss") {
+            explodeAt(s, e.pos, 140, false);
+            spawnDeathBurst(s, e.pos);
+            spawnDeathBurst(s, e.pos);
+          }
         }
       }
     }
@@ -696,10 +805,14 @@ function step(s: GameState, dtMsReal: number) {
     const dy = s.player.pos.y - e.pos.y;
     const d = Math.hypot(dx, dy) || 1;
 
-    // Facing: most snap; shielder rotates slowly so player can flank
+    // Facing: most snap; shielder & boss rotate slowly so player can flank
     const targetFacing = Math.atan2(dy, dx);
     if (e.type === "shielder") {
-      const maxTurn = 1.2 * dt; // rad/s (very slow in slowmo)
+      const maxTurn = 1.2 * dt;
+      const delta = angDelta(targetFacing, e.facing);
+      e.facing += Math.max(-maxTurn, Math.min(maxTurn, delta));
+    } else if (e.type === "boss") {
+      const maxTurn = 1.6 * dt;
       const delta = angDelta(targetFacing, e.facing);
       e.facing += Math.max(-maxTurn, Math.min(maxTurn, delta));
     } else {
@@ -711,9 +824,16 @@ function step(s: GameState, dtMsReal: number) {
     switch (e.type) {
       case "grunt": speed = 34; break;
       case "brute": speed = 22; break;
-      case "archer": speed = d < 260 ? -34 : d > 360 ? 22 : 0; break; // keeps big distance
+      case "archer": speed = d < 260 ? -34 : d > 360 ? 22 : 0; break;
       case "shielder": speed = 26; break;
       case "bomber": speed = e.fuse > 0 ? 10 : 52; break;
+      case "boss": {
+        const enraged = e.hp <= e.maxHp / 2;
+        e.phase = enraged ? 1 : 0;
+        // charging slam → freeze in place
+        speed = e.slamCharge > 0 ? 0 : (enraged ? 44 : 26);
+        break;
+      }
     }
     const vx = (dx / d) * speed;
     const vy = (dy / d) * speed;
@@ -765,10 +885,48 @@ function step(s: GameState, dtMsReal: number) {
       }
     }
 
+    // Boss: telegraphed slam + radial volleys
+    if (e.type === "boss") {
+      const enraged = e.phase === 1;
+      // Slam
+      if (e.slamCharge > 0) {
+        e.slamCharge -= dtMsReal;
+        if (e.slamCharge <= 0) {
+          explodeAt(s, e.slamPos, enraged ? 105 : 88, true);
+          e.slamCd = enraged ? 1900 : 2800;
+        }
+      } else {
+        e.slamCd -= dtMsReal;
+        if (e.slamCd <= 0 && d < 340) {
+          // lock target on player's current spot
+          e.slamPos = { ...s.player.pos };
+          e.slamCharge = enraged ? 700 : 900;
+        }
+      }
+      // Radial volley
+      e.volleyCd -= dtMsReal;
+      if (e.volleyCd <= 0) {
+        e.volleyCd = enraged ? 2200 : 3400;
+        const count = enraged ? 10 : 8;
+        const sp = 260;
+        const off = Math.random() * Math.PI * 2;
+        for (let i = 0; i < count; i++) {
+          const a = off + (i / count) * Math.PI * 2;
+          s.projectiles.push({
+            pos: { ...e.pos },
+            vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
+            life: 3500,
+            radius: 5,
+          });
+        }
+      }
+    }
+
     // Melee damage on touch (real-time only) — archers & bombers don't melee
     if (
       inRealTime && s.player.invuln <= 0 &&
-      e.type !== "archer" && e.type !== "bomber" && d < 24
+      e.type !== "archer" && e.type !== "bomber" &&
+      d < enemyRadius(e.type) + PLAYER_R - 2
     ) {
       s.player.hp = Math.max(0, s.player.hp - 1);
       s.player.invuln = 900;
@@ -837,6 +995,7 @@ function step(s: GameState, dtMsReal: number) {
 
 function enemyRadius(t: EnemyType): number {
   switch (t) {
+    case "boss": return 30;
     case "brute": return 18;
     case "shielder": return 17;
     case "bomber": return 13;
@@ -1010,6 +1169,29 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     ctx.fill();
   }
 
+  // Slam telegraphs (drawn beneath enemies)
+  for (const e of s.enemies) {
+    if (!e.alive || e.type !== "boss" || e.slamCharge <= 0) continue;
+    const maxCharge = e.phase === 1 ? 700 : 900;
+    const t = 1 - e.slamCharge / maxCharge;
+    const r = (e.phase === 1 ? 105 : 88);
+    const pulse = 0.6 + Math.sin(s.time * 0.03) * 0.4;
+    const eg = ctx.createRadialGradient(e.slamPos.x, e.slamPos.y, r * 0.2, e.slamPos.x, e.slamPos.y, r);
+    eg.addColorStop(0, `oklch(0.7 0.28 25 / ${0.15 + t * 0.35})`);
+    eg.addColorStop(1, "transparent");
+    ctx.fillStyle = eg;
+    ctx.beginPath();
+    ctx.arc(e.slamPos.x, e.slamPos.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `oklch(0.75 0.28 25 / ${0.5 + pulse * 0.4})`;
+    ctx.lineWidth = 2 + t * 2;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.arc(e.slamPos.x, e.slamPos.y, r * (0.6 + t * 0.4), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   for (const e of s.enemies) {
     if (!e.alive) continue;
     drawEnemy(ctx, e, s.time);
@@ -1100,10 +1282,11 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
   ctx.save();
   ctx.translate(e.pos.x, e.pos.y);
 
-  // shadow
+  // shadow (larger for boss)
+  const shadowR = e.type === "boss" ? 28 : 14;
   ctx.fillStyle = "oklch(0 0 0 / 0.4)";
   ctx.beginPath();
-  ctx.ellipse(1, 12, 14, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(1, e.type === "boss" ? 22 : 12, shadowR, e.type === "boss" ? 8 : 5, 0, 0, Math.PI * 2);
   ctx.fill();
 
   const flash = e.hitFlash > 0 ? 1 : 0;
@@ -1117,8 +1300,10 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
     case "archer": bodyCol = "oklch(0.55 0.15 155)"; outline = "oklch(0.2 0.06 155)"; eyeCol = "oklch(0.92 0.2 100)"; break;
     case "shielder": bodyCol = "oklch(0.45 0.08 260)"; outline = "oklch(0.15 0.04 260)"; eyeCol = "oklch(0.9 0.15 210)"; break;
     case "bomber": bodyCol = "oklch(0.55 0.2 40)"; outline = "oklch(0.2 0.08 40)"; eyeCol = "oklch(0.95 0.2 80)"; break;
+    case "boss": bodyCol = e.phase === 1 ? "oklch(0.38 0.18 25)" : "oklch(0.32 0.09 300)"; outline = "oklch(0.08 0.05 300)"; eyeCol = e.phase === 1 ? "oklch(0.95 0.28 25)" : "oklch(0.9 0.24 60)"; break;
   }
   if (flash) { bodyCol = "oklch(0.98 0.02 210)"; eyeCol = "oklch(0.2 0.02 210)"; }
+
 
   ctx.fillStyle = bodyCol;
   ctx.beginPath();
@@ -1212,8 +1397,75 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
     ctx.closePath(); ctx.fill();
   }
 
-  // hp pips for multi-hp
-  if (e.hp > 1 && e.type !== "shielder") {
+  if (e.type === "boss") {
+    // giant blade on back, spikes crown
+    ctx.save();
+    ctx.rotate(e.facing);
+    // horns / crown
+    ctx.fillStyle = e.phase === 1 ? "oklch(0.65 0.24 30)" : "oklch(0.7 0.05 260)";
+    for (let i = -2; i <= 2; i++) {
+      const ang = (i / 5) * Math.PI * 0.9 - Math.PI;
+      const hx = Math.cos(ang) * r;
+      const hy = Math.sin(ang) * r;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.lineTo(hx + Math.cos(ang) * 10, hy + Math.sin(ang) * 10);
+      ctx.lineTo(hx + Math.cos(ang + 0.15) * 4, hy + Math.sin(ang + 0.15) * 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // giant blade in front
+    ctx.translate(r + 4, 0);
+    ctx.fillStyle = "oklch(0.3 0.05 240)";
+    ctx.fillRect(-4, -3, 8, 6);
+    const bladeGrad = ctx.createLinearGradient(0, -6, 32, 0);
+    bladeGrad.addColorStop(0, "oklch(0.95 0.05 210)");
+    bladeGrad.addColorStop(1, "oklch(0.55 0.12 220)");
+    ctx.fillStyle = bladeGrad;
+    ctx.beginPath();
+    ctx.moveTo(4, -5);
+    ctx.lineTo(34, -2);
+    ctx.lineTo(38, 0);
+    ctx.lineTo(34, 2);
+    ctx.lineTo(4, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "oklch(0.2 0.05 240)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // rune ring around boss
+    ctx.strokeStyle = e.phase === 1 ? "oklch(0.75 0.28 25 / 0.45)" : "oklch(0.85 0.18 60 / 0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.arc(0, 0, r + 6, (time * 0.001) % (Math.PI * 2), (time * 0.001) % (Math.PI * 2) + Math.PI * 1.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // HP bar
+    const barW = 60;
+    const pct = Math.max(0, e.hp / e.maxHp);
+    ctx.fillStyle = "oklch(0.15 0.03 265 / 0.85)";
+    ctx.fillRect(-barW / 2 - 1, -r - 14, barW + 2, 6);
+    const hpGrad = ctx.createLinearGradient(-barW / 2, 0, barW / 2, 0);
+    if (e.phase === 1) {
+      hpGrad.addColorStop(0, "oklch(0.75 0.28 25)");
+      hpGrad.addColorStop(1, "oklch(0.65 0.24 15)");
+    } else {
+      hpGrad.addColorStop(0, "oklch(0.88 0.12 210)");
+      hpGrad.addColorStop(1, "oklch(0.72 0.22 35)");
+    }
+    ctx.fillStyle = hpGrad;
+    ctx.fillRect(-barW / 2, -r - 13, barW * pct, 4);
+    ctx.strokeStyle = "oklch(0.5 0.05 260 / 0.6)";
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(-barW / 2 - 1, -r - 14, barW + 2, 6);
+  }
+
+  // hp pips for multi-hp (skip boss — has bar)
+  if (e.hp > 1 && e.type !== "shielder" && e.type !== "boss") {
     ctx.fillStyle = "oklch(0.9 0.02 260 / 0.85)";
     for (let i = 0; i < e.hp; i++) {
       ctx.beginPath();
