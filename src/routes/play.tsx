@@ -1176,12 +1176,22 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
   }
 
   if (e.type === "bomber") {
-    // pulsing fuse
-    const pulse = 0.5 + Math.sin(time * 0.02) * 0.5;
-    ctx.fillStyle = `oklch(0.92 0.2 80 / ${0.5 + pulse * 0.5})`;
+    // pulsing fuse — much faster & red when armed
+    const armed = e.fuse > 0;
+    const rate = armed ? 0.05 : 0.02;
+    const pulse = 0.5 + Math.sin(time * rate) * 0.5;
+    const col = armed ? "oklch(0.7 0.28 25)" : "oklch(0.92 0.2 80)";
+    ctx.fillStyle = `${col.slice(0, -1)} / ${0.5 + pulse * 0.5})`;
     ctx.beginPath();
-    ctx.arc(0, -r - 3, 3 + pulse * 1.2, 0, Math.PI * 2);
+    ctx.arc(0, -r - 3, 3 + pulse * (armed ? 2.4 : 1.2), 0, Math.PI * 2);
     ctx.fill();
+    if (armed) {
+      ctx.strokeStyle = `oklch(0.75 0.25 30 / ${0.3 + pulse * 0.5})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, r + 4 + pulse * 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     // cross-hatch danger
     ctx.strokeStyle = "oklch(0.3 0.1 40)";
     ctx.lineWidth = 1;
