@@ -796,10 +796,14 @@ function step(s: GameState, dtMsReal: number) {
     const dy = s.player.pos.y - e.pos.y;
     const d = Math.hypot(dx, dy) || 1;
 
-    // Facing: most snap; shielder rotates slowly so player can flank
+    // Facing: most snap; shielder & boss rotate slowly so player can flank
     const targetFacing = Math.atan2(dy, dx);
     if (e.type === "shielder") {
-      const maxTurn = 1.2 * dt; // rad/s (very slow in slowmo)
+      const maxTurn = 1.2 * dt;
+      const delta = angDelta(targetFacing, e.facing);
+      e.facing += Math.max(-maxTurn, Math.min(maxTurn, delta));
+    } else if (e.type === "boss") {
+      const maxTurn = 1.6 * dt;
       const delta = angDelta(targetFacing, e.facing);
       e.facing += Math.max(-maxTurn, Math.min(maxTurn, delta));
     } else {
@@ -811,9 +815,16 @@ function step(s: GameState, dtMsReal: number) {
     switch (e.type) {
       case "grunt": speed = 34; break;
       case "brute": speed = 22; break;
-      case "archer": speed = d < 260 ? -34 : d > 360 ? 22 : 0; break; // keeps big distance
+      case "archer": speed = d < 260 ? -34 : d > 360 ? 22 : 0; break;
       case "shielder": speed = 26; break;
       case "bomber": speed = e.fuse > 0 ? 10 : 52; break;
+      case "boss": {
+        const enraged = e.hp <= e.maxHp / 2;
+        e.phase = enraged ? 1 : 0;
+        // charging slam → freeze in place
+        speed = e.slamCharge > 0 ? 0 : (enraged ? 44 : 26);
+        break;
+      }
     }
     const vx = (dx / d) * speed;
     const vy = (dy / d) * speed;
