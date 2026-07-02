@@ -876,10 +876,48 @@ function step(s: GameState, dtMsReal: number) {
       }
     }
 
+    // Boss: telegraphed slam + radial volleys
+    if (e.type === "boss") {
+      const enraged = e.phase === 1;
+      // Slam
+      if (e.slamCharge > 0) {
+        e.slamCharge -= dtMsReal;
+        if (e.slamCharge <= 0) {
+          explodeAt(s, e.slamPos, enraged ? 105 : 88, true);
+          e.slamCd = enraged ? 1900 : 2800;
+        }
+      } else {
+        e.slamCd -= dtMsReal;
+        if (e.slamCd <= 0 && d < 340) {
+          // lock target on player's current spot
+          e.slamPos = { ...s.player.pos };
+          e.slamCharge = enraged ? 700 : 900;
+        }
+      }
+      // Radial volley
+      e.volleyCd -= dtMsReal;
+      if (e.volleyCd <= 0) {
+        e.volleyCd = enraged ? 2200 : 3400;
+        const count = enraged ? 10 : 8;
+        const sp = 260;
+        const off = Math.random() * Math.PI * 2;
+        for (let i = 0; i < count; i++) {
+          const a = off + (i / count) * Math.PI * 2;
+          s.projectiles.push({
+            pos: { ...e.pos },
+            vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
+            life: 3500,
+            radius: 5,
+          });
+        }
+      }
+    }
+
     // Melee damage on touch (real-time only) — archers & bombers don't melee
     if (
       inRealTime && s.player.invuln <= 0 &&
-      e.type !== "archer" && e.type !== "bomber" && d < 24
+      e.type !== "archer" && e.type !== "bomber" &&
+      d < enemyRadius(e.type) + PLAYER_R - 2
     ) {
       s.player.hp = Math.max(0, s.player.hp - 1);
       s.player.invuln = 900;
