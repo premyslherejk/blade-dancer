@@ -993,6 +993,7 @@ function step(s: GameState, dtMsReal: number) {
 
 function enemyRadius(t: EnemyType): number {
   switch (t) {
+    case "boss": return 30;
     case "brute": return 18;
     case "shielder": return 17;
     case "bomber": return 13;
