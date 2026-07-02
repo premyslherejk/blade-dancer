@@ -224,6 +224,9 @@ const LEVEL_BOSS: LevelDef = {
   spikes: [{ x: 220, y: 400 }],
 };
 
+LEVELS.push(LEVEL_IV, LEVEL_V, LEVEL_BOSS);
+
+
 
 function PlayPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
