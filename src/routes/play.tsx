@@ -1280,10 +1280,11 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
   ctx.save();
   ctx.translate(e.pos.x, e.pos.y);
 
-  // shadow
+  // shadow (larger for boss)
+  const shadowR = e.type === "boss" ? 28 : 14;
   ctx.fillStyle = "oklch(0 0 0 / 0.4)";
   ctx.beginPath();
-  ctx.ellipse(1, 12, 14, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(1, e.type === "boss" ? 22 : 12, shadowR, e.type === "boss" ? 8 : 5, 0, 0, Math.PI * 2);
   ctx.fill();
 
   const flash = e.hitFlash > 0 ? 1 : 0;
@@ -1297,8 +1298,10 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
     case "archer": bodyCol = "oklch(0.55 0.15 155)"; outline = "oklch(0.2 0.06 155)"; eyeCol = "oklch(0.92 0.2 100)"; break;
     case "shielder": bodyCol = "oklch(0.45 0.08 260)"; outline = "oklch(0.15 0.04 260)"; eyeCol = "oklch(0.9 0.15 210)"; break;
     case "bomber": bodyCol = "oklch(0.55 0.2 40)"; outline = "oklch(0.2 0.08 40)"; eyeCol = "oklch(0.95 0.2 80)"; break;
+    case "boss": bodyCol = e.phase === 1 ? "oklch(0.38 0.18 25)" : "oklch(0.32 0.09 300)"; outline = "oklch(0.08 0.05 300)"; eyeCol = e.phase === 1 ? "oklch(0.95 0.28 25)" : "oklch(0.9 0.24 60)"; break;
   }
   if (flash) { bodyCol = "oklch(0.98 0.02 210)"; eyeCol = "oklch(0.2 0.02 210)"; }
+
 
   ctx.fillStyle = bodyCol;
   ctx.beginPath();
