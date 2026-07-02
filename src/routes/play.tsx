@@ -695,52 +695,87 @@ function step(s: GameState, dtMsReal: number) {
     const dx = s.player.pos.x - e.pos.x;
     const dy = s.player.pos.y - e.pos.y;
     const d = Math.hypot(dx, dy) || 1;
-    e.facing = Math.atan2(dy, dx);
+
+    // Facing: most snap; shielder rotates slowly so player can flank
+    const targetFacing = Math.atan2(dy, dx);
+    if (e.type === "shielder") {
+      const maxTurn = 1.2 * dt; // rad/s (very slow in slowmo)
+      const delta = angDelta(targetFacing, e.facing);
+      e.facing += Math.max(-maxTurn, Math.min(maxTurn, delta));
+    } else {
+      e.facing = targetFacing;
+    }
 
     // Movement per type
     let speed = 0;
     switch (e.type) {
       case "grunt": speed = 34; break;
       case "brute": speed = 22; break;
-      case "archer": speed = d < 160 ? -30 : d > 260 ? 20 : 0; break; // keeps distance
+      case "archer": speed = d < 260 ? -34 : d > 360 ? 22 : 0; break; // keeps big distance
       case "shielder": speed = 26; break;
-      case "bomber": speed = 46; break;
+      case "bomber": speed = e.fuse > 0 ? 10 : 52; break;
     }
-    e.vel.x = (dx / d) * speed;
-    e.vel.y = (dy / d) * speed;
-    e.pos.x += e.vel.x * dt;
-    e.pos.y += e.vel.y * dt;
+    const vx = (dx / d) * speed;
+    const vy = (dy / d) * speed;
+    e.vel.x = vx;
+    e.vel.y = vy;
 
-    // Archer shooting (real-time; uses real ms so slowmo makes them look thoughtful)
+    // Axis-separated movement with wall collision
+    const r = enemyRadius(e.type);
+    const prevX = e.pos.x;
+    e.pos.x += vx * dt;
+    for (const w of s.walls) {
+      if (circleRectHit(e.pos, r, w)) { e.pos.x = prevX; break; }
+    }
+    const prevY = e.pos.y;
+    e.pos.y += vy * dt;
+    for (const w of s.walls) {
+      if (circleRectHit(e.pos, r, w)) { e.pos.y = prevY; break; }
+    }
+
+    // Archer shooting — long range, real-time cadence
     if (e.type === "archer") {
       e.shootCd -= dtMsReal;
-      if (e.shootCd <= 0) {
-        e.shootCd = 2200 + Math.random() * 600;
-        const sp = 210;
+      if (e.shootCd <= 0 && d < 700) {
+        e.shootCd = 1800 + Math.random() * 700;
+        const sp = 340;
         s.projectiles.push({
           pos: { ...e.pos },
           vel: { x: (dx / d) * sp, y: (dy / d) * sp },
-          life: 3000,
+          life: 5000,
           radius: 5,
         });
       }
     }
 
-    // Bomber self-detonation on touch
-    if (e.type === "bomber" && d < 26 && inRealTime && s.player.invuln <= 0) {
-      e.alive = false;
-      spawnDeathBurst(s, e.pos);
-      explodeAt(s, e.pos, 78, true);
-      continue;
+    // Bomber: proximity fuse → AOE explosion
+    if (e.type === "bomber") {
+      const TRIGGER = 78;
+      if (e.fuse === 0 && d < TRIGGER) {
+        e.fuse = 650; // ms until boom
+      }
+      if (e.fuse > 0) {
+        e.fuse -= dtMsReal;
+        if (e.fuse <= 0) {
+          e.alive = false;
+          spawnDeathBurst(s, e.pos);
+          explodeAt(s, e.pos, 110, true);
+          continue;
+        }
+      }
     }
 
-    // Melee damage on touch (real-time only)
-    if (inRealTime && s.player.invuln <= 0 && e.type !== "archer" && d < 24) {
+    // Melee damage on touch (real-time only) — archers & bombers don't melee
+    if (
+      inRealTime && s.player.invuln <= 0 &&
+      e.type !== "archer" && e.type !== "bomber" && d < 24
+    ) {
       s.player.hp = Math.max(0, s.player.hp - 1);
       s.player.invuln = 900;
       s.shake = 12;
     }
   }
+
 
   // Projectiles (real time — they visibly slow during aim thanks to global scale not applied; but we want them to slow too)
   for (const pr of s.projectiles) {
