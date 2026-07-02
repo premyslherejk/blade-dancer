@@ -143,6 +143,87 @@ const LEVELS: LevelDef[] = [
   },
 ];
 
+const LEVEL_IV: LevelDef = {
+  name: "IV · The Gauntlet",
+  subtitle: "Everything they can throw at you",
+  intro: "A mix of foes. Chain dashes — use barrels to clear crowds.",
+  playerStart: { x: ARENA_W / 2, y: ARENA_H - 90 },
+  walls: [
+    ...OUTER,
+    { x: 60, y: 150, w: 22, h: 130 },
+    { x: 358, y: 150, w: 22, h: 130 },
+    { x: 120, y: 360, w: 200, h: 22 },
+    { x: 60, y: 520, w: 22, h: 130 },
+    { x: 358, y: 520, w: 22, h: 130 },
+  ],
+  enemies: [
+    { x: 130, y: 110, type: "archer" },
+    { x: 310, y: 110, type: "archer" },
+    { x: 220, y: 200, type: "shielder" },
+    { x: 110, y: 300, type: "bomber" },
+    { x: 330, y: 300, type: "bomber" },
+    { x: 220, y: 440, type: "brute" },
+    { x: 110, y: 600, type: "grunt" },
+    { x: 330, y: 600, type: "grunt" },
+    { x: 220, y: 680, type: "brute" },
+  ],
+  barrels: [{ x: 220, y: 140 }, { x: 220, y: 320 }, { x: 220, y: 560 }],
+  spikes: [{ x: 110, y: 440 }, { x: 330, y: 440 }],
+};
+
+const LEVEL_V: LevelDef = {
+  name: "V · Crossfire",
+  subtitle: "No safe corner remains",
+  intro: "Archers hold every corner. Break the line before their volleys land.",
+  playerStart: { x: ARENA_W / 2, y: ARENA_H - 80 },
+  walls: [
+    ...OUTER,
+    { x: 160, y: 180, w: 120, h: 22 },
+    { x: 20, y: 320, w: 100, h: 22 },
+    { x: 320, y: 320, w: 100, h: 22 },
+    { x: 160, y: 460, w: 120, h: 22 },
+    { x: 20, y: 600, w: 100, h: 22 },
+    { x: 320, y: 600, w: 100, h: 22 },
+  ],
+  enemies: [
+    { x: 60, y: 90, type: "archer" },
+    { x: 380, y: 90, type: "archer" },
+    { x: 220, y: 130, type: "shielder" },
+    { x: 60, y: 260, type: "archer" },
+    { x: 380, y: 260, type: "archer" },
+    { x: 220, y: 400, type: "bomber" },
+    { x: 220, y: 540, type: "shielder" },
+    { x: 60, y: 680, type: "brute" },
+    { x: 380, y: 680, type: "brute" },
+    { x: 220, y: 700, type: "grunt" },
+  ],
+  barrels: [{ x: 220, y: 260 }, { x: 220, y: 620 }],
+  spikes: [{ x: 220, y: 340 }, { x: 220, y: 480 }],
+};
+
+const LEVEL_BOSS: LevelDef = {
+  name: "VI · The Warlord",
+  subtitle: "Boss — Iron Warlord of the Ash",
+  intro: "The Warlord slams the ground and fires radial arcs. Dash between telegraphs and strike his back. He enrages below half HP.",
+  playerStart: { x: ARENA_W / 2, y: ARENA_H - 80 },
+  walls: [
+    ...OUTER,
+    { x: 30, y: 260, w: 80, h: 22 },
+    { x: 330, y: 260, w: 80, h: 22 },
+    { x: 30, y: 500, w: 80, h: 22 },
+    { x: 330, y: 500, w: 80, h: 22 },
+  ],
+  enemies: [
+    { x: ARENA_W / 2, y: 200, type: "boss" },
+    { x: 90, y: 640, type: "grunt" },
+    { x: 350, y: 640, type: "grunt" },
+    { x: 220, y: 620, type: "bomber" },
+  ],
+  barrels: [{ x: 80, y: 400 }, { x: 360, y: 400 }],
+  spikes: [{ x: 220, y: 400 }],
+};
+
+
 function PlayPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState | null>(null);
