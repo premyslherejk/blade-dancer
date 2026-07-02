@@ -591,12 +591,53 @@ function createLevelState(idx: number, carryHp: number, carryGold: number): Game
   const def = LEVELS[idx];
   const enemies: Enemy[] = def.enemies.map((e, i) => mkEnemy(i + 1, e.x, e.y, e.type));
 
-  const bgTiles: GameState["bgTiles"] = [];
-  const tile = 40;
-  for (let y = 0; y < ARENA_H; y += tile) {
-    for (let x = 0; x < ARENA_W; x += tile) {
-      bgTiles.push({ x, y, shade: Math.random() });
+  const seed = (idx + 1) * 1337 + 42;
+  const rng = mulberry32(seed);
+
+  // Generate ambient props avoiding gameplay elements
+  const blockers: Array<{ x: number; y: number; r: number }> = [
+    { x: def.playerStart.x, y: def.playerStart.y, r: 44 },
+    ...def.enemies.map((e) => ({ x: e.x, y: e.y, r: 34 })),
+    ...def.barrels.map((b) => ({ x: b.x, y: b.y, r: 30 })),
+    ...def.spikes.map((sp) => ({ x: sp.x, y: sp.y, r: 34 })),
+  ];
+  const isBlocked = (x: number, y: number, pad = 10) => {
+    for (const w of def.walls) {
+      if (x > w.x - pad && x < w.x + w.w + pad && y > w.y - pad && y < w.y + w.h + pad) return true;
     }
+    for (const b of blockers) {
+      const dx = x - b.x, dy = y - b.y;
+      if (dx * dx + dy * dy < b.r * b.r) return true;
+    }
+    return false;
+  };
+
+  const props: Prop[] = [];
+  const kinds: Prop["kind"][] = ["moss", "moss", "crack", "crack", "grass", "grass", "grass", "pebble", "pebble", "rock", "flower", "skull"];
+  for (let i = 0; i < 240 && props.length < 90; i++) {
+    const x = 22 + rng() * (ARENA_W - 44);
+    const y = 22 + rng() * (ARENA_H - 44);
+    if (isBlocked(x, y, 6)) continue;
+    const kind = kinds[Math.floor(rng() * kinds.length)];
+    props.push({ kind, x, y, rot: rng() * Math.PI * 2, size: 0.6 + rng() * 0.9, seed: rng() * 1000 });
+  }
+
+  // Torches on inner walls (not outer border)
+  const torches: Torch[] = [];
+  for (const w of def.walls) {
+    const outer =
+      w.x <= 0 || w.y <= 0 || w.x + w.w >= ARENA_W || w.y + w.h >= ARENA_H;
+    if (outer) continue;
+    const long = Math.max(w.w, w.h);
+    if (long < 70) continue;
+    // Place a torch at midpoint on the "top" edge (facing arena interior toward smaller y for horizontal walls)
+    if (w.w >= w.h) {
+      torches.push({ x: w.x + w.w / 2, y: w.y - 6, flicker: rng() * 100 });
+    } else {
+      torches.push({ x: w.x - 6, y: w.y + w.h / 2, flicker: rng() * 100 });
+      torches.push({ x: w.x + w.w + 6, y: w.y + w.h / 2, flicker: rng() * 100 });
+    }
+    if (torches.length >= 6) break;
   }
 
   return {
@@ -630,7 +671,9 @@ function createLevelState(idx: number, carryHp: number, carryGold: number): Game
     time: 0,
     victory: false,
     defeat: false,
-    bgTiles,
+    props,
+    torches,
+    floorSeed: seed,
   };
 }
 
