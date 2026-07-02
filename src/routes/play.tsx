@@ -7,18 +7,25 @@ export const Route = createFileRoute("/play")({
 
 /* ---------- Types ---------- */
 type Vec = { x: number; y: number };
-type EnemyType = "grunt" | "brute" | "archer" | "shielder" | "bomber";
+type EnemyType = "grunt" | "brute" | "archer" | "shielder" | "bomber" | "boss";
 type Enemy = {
   id: number;
   pos: Vec;
   vel: Vec;
   hp: number;
+  maxHp: number;
   alive: boolean;
   hitFlash: number;
   type: EnemyType;
   facing: number;
   shootCd: number;
   fuse: number; // bomber: >0 means armed, counts down to 0 then explodes
+  // boss-only
+  slamCd: number;
+  slamCharge: number; // ms remaining on telegraph
+  slamPos: Vec;
+  volleyCd: number;
+  phase: number; // enrage phase (0 or 1)
 };
 type Wall = { x: number; y: number; w: number; h: number };
 type Barrel = { pos: Vec; alive: boolean; radius: number };
