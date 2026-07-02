@@ -747,8 +747,10 @@ function step(s: GameState, dtMsReal: number) {
             continue;
           }
         }
+        // Boss: i-frames to avoid multi-hit per dash
+        if (e.type === "boss" && e.hitFlash > 0) continue;
         e.hp -= 1;
-        e.hitFlash = 200;
+        e.hitFlash = e.type === "boss" ? 260 : 200;
         s.shake = Math.max(s.shake, 10);
         spawnHitBurst(s, e.pos);
         if (e.hp <= 0) {
@@ -756,6 +758,11 @@ function step(s: GameState, dtMsReal: number) {
           s.gold += goldFor(e.type);
           spawnDeathBurst(s, e.pos);
           if (e.type === "bomber") explodeAt(s, e.pos, 78, true);
+          if (e.type === "boss") {
+            explodeAt(s, e.pos, 140, false);
+            spawnDeathBurst(s, e.pos);
+            spawnDeathBurst(s, e.pos);
+          }
         }
       }
     }
