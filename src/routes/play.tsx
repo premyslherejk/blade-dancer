@@ -363,10 +363,12 @@ function PlayPage() {
     }
     setCarryHp(Math.max(1, hp));
     setCarryGold(gold);
-    setLevelIdx(levelIdx + 1);
+    const next = levelIdx + 1;
+    setLevelIdx(next);
     setVictory(false);
     setDefeat(false);
     setPaused(false);
+    if (LEVELS[next]?.intro) setShowTutorial(true);
   };
 
   const current = LEVELS[levelIdx];
