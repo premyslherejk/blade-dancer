@@ -7,6 +7,7 @@ export const Route = createFileRoute("/play")({
 
 /* ---------- Types ---------- */
 type Vec = { x: number; y: number };
+type EnemyType = "grunt" | "brute" | "archer" | "shielder" | "bomber";
 type Enemy = {
   id: number;
   pos: Vec;
@@ -14,7 +15,9 @@ type Enemy = {
   hp: number;
   alive: boolean;
   hitFlash: number;
-  type: "grunt" | "brute";
+  type: EnemyType;
+  facing: number;
+  shootCd: number;
 };
 type Wall = { x: number; y: number; w: number; h: number };
 type Barrel = { pos: Vec; alive: boolean; radius: number };
@@ -23,15 +26,114 @@ type Slash = { a: Vec; b: Vec; life: number; max: number };
 type TrailDot = { pos: Vec; life: number };
 type Particle = { pos: Vec; vel: Vec; life: number; max: number; color: string; size: number };
 type Explosion = { pos: Vec; life: number; max: number; radius: number };
+type Projectile = { pos: Vec; vel: Vec; life: number; radius: number };
 
 /* ---------- Constants ---------- */
 const ARENA_W = 440;
 const ARENA_H = 780;
 const PLAYER_R = 16;
-const DASH_SPEED = 1400; // px/s during dash
+const DASH_SPEED = 1400;
 const DASH_MAX_LEN = 280;
 const SLOWMO_FACTOR = 0.08;
-const NORMAL_TIME_AFTER_DASH_MS = 220; // brief real-time window during dash
+const NORMAL_TIME_AFTER_DASH_MS = 220;
+
+/* ---------- Levels ---------- */
+type LevelDef = {
+  name: string;
+  subtitle: string;
+  playerStart: Vec;
+  walls: Wall[];
+  enemies: Array<{ x: number; y: number; type: EnemyType }>;
+  barrels: Vec[];
+  spikes: Vec[];
+  intro?: string;
+};
+
+const OUTER: Wall[] = [
+  { x: 0, y: 0, w: ARENA_W, h: 20 },
+  { x: 0, y: ARENA_H - 20, w: ARENA_W, h: 20 },
+  { x: 0, y: 0, w: 20, h: ARENA_H },
+  { x: ARENA_W - 20, y: 0, w: 20, h: ARENA_H },
+];
+
+const LEVELS: LevelDef[] = [
+  {
+    name: "I · Awakening",
+    subtitle: "Trial of the Blade",
+    playerStart: { x: ARENA_W / 2, y: ARENA_H - 120 },
+    walls: [
+      ...OUTER,
+      { x: 80, y: 260, w: 90, h: 22 },
+      { x: 270, y: 260, w: 90, h: 22 },
+      { x: 180, y: 460, w: 80, h: 22 },
+      { x: 60, y: 580, w: 22, h: 90 },
+      { x: 358, y: 580, w: 22, h: 90 },
+    ],
+    enemies: [
+      { x: 120, y: 180, type: "grunt" },
+      { x: 320, y: 180, type: "grunt" },
+      { x: 100, y: 400, type: "grunt" },
+      { x: 340, y: 400, type: "grunt" },
+      { x: 220, y: 340, type: "brute" },
+      { x: 220, y: 540, type: "grunt" },
+      { x: 220, y: 660, type: "brute" },
+    ],
+    barrels: [{ x: 220, y: 240 }],
+    spikes: [{ x: 220, y: 620 }],
+  },
+  {
+    name: "II · The Watchers",
+    subtitle: "Beware the arrows",
+    intro: "Archers shoot glowing arrows from afar. Dash to close the distance.",
+    playerStart: { x: ARENA_W / 2, y: ARENA_H - 100 },
+    walls: [
+      ...OUTER,
+      { x: 20, y: 200, w: 130, h: 22 },
+      { x: 290, y: 200, w: 130, h: 22 },
+      { x: 160, y: 380, w: 120, h: 22 },
+      { x: 20, y: 520, w: 90, h: 22 },
+      { x: 330, y: 520, w: 90, h: 22 },
+    ],
+    enemies: [
+      { x: 70, y: 110, type: "archer" },
+      { x: 370, y: 110, type: "archer" },
+      { x: 220, y: 130, type: "grunt" },
+      { x: 100, y: 310, type: "bomber" },
+      { x: 340, y: 310, type: "bomber" },
+      { x: 220, y: 460, type: "brute" },
+      { x: 130, y: 620, type: "grunt" },
+      { x: 310, y: 620, type: "grunt" },
+    ],
+    barrels: [{ x: 220, y: 260 }, { x: 220, y: 560 }],
+    spikes: [{ x: 90, y: 460 }, { x: 350, y: 460 }],
+  },
+  {
+    name: "III · Iron Wall",
+    subtitle: "Shields cannot be broken from the front",
+    intro: "Shielders block frontal dashes. Strike from behind to shatter them.",
+    playerStart: { x: ARENA_W / 2, y: ARENA_H - 90 },
+    walls: [
+      ...OUTER,
+      { x: 90, y: 170, w: 22, h: 110 },
+      { x: 328, y: 170, w: 22, h: 110 },
+      { x: 180, y: 320, w: 80, h: 22 },
+      { x: 60, y: 470, w: 140, h: 22 },
+      { x: 240, y: 470, w: 140, h: 22 },
+    ],
+    enemies: [
+      { x: 220, y: 110, type: "archer" },
+      { x: 140, y: 240, type: "shielder" },
+      { x: 300, y: 240, type: "shielder" },
+      { x: 220, y: 400, type: "bomber" },
+      { x: 100, y: 560, type: "shielder" },
+      { x: 340, y: 560, type: "shielder" },
+      { x: 220, y: 620, type: "brute" },
+      { x: 220, y: 700, type: "grunt" },
+    ],
+    barrels: [{ x: 220, y: 200 }, { x: 100, y: 400 }, { x: 340, y: 400 }],
+    spikes: [{ x: 220, y: 520 }],
+  },
+];
 
 function PlayPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -40,12 +142,17 @@ function PlayPage() {
   const [gold, setGold] = useState(0);
   const [paused, setPaused] = useState(false);
   const [victory, setVictory] = useState(false);
+  const [defeat, setDefeat] = useState(false);
+  const [levelIdx, setLevelIdx] = useState(0);
+  const [showTutorial, setShowTutorial] = useState(true);
+  const [carryGold, setCarryGold] = useState(0);
+  const [carryHp, setCarryHp] = useState(3);
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
   }, []);
 
-  // Init game
+  // Init game — rebuilds when level changes
   useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
@@ -60,7 +167,7 @@ function PlayPage() {
     resize();
     window.addEventListener("resize", resize);
 
-    const state: GameState = createInitialState();
+    const state: GameState = createLevelState(levelIdx, carryHp, carryGold);
     stateRef.current = state;
 
     let raf = 0;
@@ -68,10 +175,15 @@ function PlayPage() {
     const loop = (t: number) => {
       const dtMs = Math.min(50, t - last);
       last = t;
-      if (!paused && !victory) {
+      const frozen = paused || victory || defeat || showTutorial;
+      if (!frozen) {
         step(state, dtMs);
         setHp(state.player.hp);
         setGold(state.gold);
+        if (state.player.hp <= 0 && !state.defeat) {
+          state.defeat = true;
+          setDefeat(true);
+        }
         if (state.enemies.every((e) => !e.alive) && !state.victory) {
           state.victory = true;
           setVictory(true);
@@ -90,7 +202,7 @@ function PlayPage() {
       return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
     };
     const down = (e: PointerEvent) => {
-      if (paused || victory) return;
+      if (paused || victory || defeat || showTutorial) return;
       if (state.player.dashing) return;
       state.aiming = true;
       state.aimStart = getPos(e);
@@ -101,7 +213,7 @@ function PlayPage() {
       if (!state.aiming) return;
       state.aimCurrent = getPos(e);
     };
-    const up = (e: PointerEvent) => {
+    const up = () => {
       if (!state.aiming) return;
       state.aiming = false;
       const p = state.player.pos;
@@ -110,7 +222,6 @@ function PlayPage() {
       if (len < 12) return;
       const nx = dir.x / len;
       const ny = dir.y / len;
-      // Dash away from drag direction feels like a slingshot. We use drag direction as dash direction (natural).
       const dashLen = Math.min(DASH_MAX_LEN, len * 1.4);
       state.player.dashDir = { x: nx, y: ny };
       state.player.dashTarget = { x: p.x + nx * dashLen, y: p.y + ny * dashLen };
@@ -133,15 +244,40 @@ function PlayPage() {
       canvas.removeEventListener("pointerup", up);
       canvas.removeEventListener("pointercancel", up);
     };
-  }, [paused, victory]);
+  }, [paused, victory, defeat, levelIdx, showTutorial, carryHp, carryGold]);
 
-  const restart = () => {
-    stateRef.current = createInitialState();
-    setHp(3);
-    setGold(0);
+  const restartLevel = () => {
+    setDefeat(false);
     setVictory(false);
     setPaused(false);
+    // rebuild via effect dependency change
+    setCarryHp(3);
+    setCarryGold(gold);
   };
+
+  const nextLevel = () => {
+    const hasNext = levelIdx < LEVELS.length - 1;
+    if (!hasNext) {
+      // full clear — reset to level 0
+      setCarryHp(3);
+      setCarryGold(0);
+      setLevelIdx(0);
+      setVictory(false);
+      setDefeat(false);
+      setPaused(false);
+      setShowTutorial(true);
+      return;
+    }
+    setCarryHp(Math.max(1, hp));
+    setCarryGold(gold);
+    setLevelIdx(levelIdx + 1);
+    setVictory(false);
+    setDefeat(false);
+    setPaused(false);
+  };
+
+  const current = LEVELS[levelIdx];
+  const isFinal = levelIdx === LEVELS.length - 1;
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden flex items-center justify-center bg-black">
@@ -149,7 +285,6 @@ function PlayPage() {
         className="relative w-full h-full max-w-[440px] mx-auto"
         style={{ background: "var(--gradient-sky)" }}
       >
-        {/* Canvas fills the arena */}
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full touch-none"
@@ -158,15 +293,10 @@ function PlayPage() {
 
         {/* HUD */}
         <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-4 flex items-start justify-between pointer-events-none">
-          {/* HP */}
           <div className="flex items-center gap-2 pointer-events-auto">
             <div
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border"
-              style={{
-                background: "oklch(0.15 0.03 265 / 0.75)",
-                borderColor: "var(--border)",
-                backdropFilter: "blur(8px)",
-              }}
+              style={{ background: "oklch(0.15 0.03 265 / 0.75)", borderColor: "var(--border)", backdropFilter: "blur(8px)" }}
             >
               {Array.from({ length: 3 }).map((_, i) => (
                 <HeartIcon key={i} filled={i < hp} />
@@ -174,84 +304,111 @@ function PlayPage() {
             </div>
           </div>
 
-          {/* Gold */}
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full border pointer-events-auto"
-            style={{
-              background: "oklch(0.15 0.03 265 / 0.75)",
-              borderColor: "var(--border)",
-              backdropFilter: "blur(8px)",
-            }}
-          >
+          <div className="flex flex-col items-center gap-1 pointer-events-none">
             <div
-              className="w-4 h-4 rounded-full"
-              style={{ background: "var(--gradient-gold)", boxShadow: "0 0 10px var(--gold)" }}
-            />
-            <span className="font-display text-sm tracking-widest" style={{ color: "var(--gold)" }}>
-              {String(gold).padStart(3, "0")}
-            </span>
+              className="px-3 py-1 rounded-full border text-[0.6rem] tracking-[0.35em] uppercase"
+              style={{ background: "oklch(0.15 0.03 265 / 0.75)", borderColor: "var(--border)", backdropFilter: "blur(8px)", color: "var(--muted-foreground)" }}
+            >
+              Level {levelIdx + 1} / {LEVELS.length}
+            </div>
           </div>
 
-          {/* Pause */}
-          <button
-            onClick={() => setPaused((p) => !p)}
-            className="flex items-center justify-center w-10 h-10 rounded-full border pointer-events-auto"
-            style={{
-              background: "oklch(0.15 0.03 265 / 0.75)",
-              borderColor: "var(--border)",
-              backdropFilter: "blur(8px)",
-              color: "var(--foreground)",
-            }}
-            aria-label="Pause"
-          >
-            {paused ? (
-              <svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor"><path d="M0 0 L12 7 L0 14 Z" /></svg>
-            ) : (
-              <svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor"><rect x="0" y="0" width="4" height="14"/><rect x="8" y="0" width="4" height="14"/></svg>
-            )}
-          </button>
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full border"
+              style={{ background: "oklch(0.15 0.03 265 / 0.75)", borderColor: "var(--border)", backdropFilter: "blur(8px)" }}
+            >
+              <div className="w-4 h-4 rounded-full" style={{ background: "var(--gradient-gold)", boxShadow: "0 0 10px var(--gold)" }} />
+              <span className="font-display text-sm tracking-widest" style={{ color: "var(--gold)" }}>
+                {String(gold).padStart(3, "0")}
+              </span>
+            </div>
+            <button
+              onClick={() => setPaused((p) => !p)}
+              className="flex items-center justify-center w-10 h-10 rounded-full border"
+              style={{ background: "oklch(0.15 0.03 265 / 0.75)", borderColor: "var(--border)", backdropFilter: "blur(8px)", color: "var(--foreground)" }}
+              aria-label="Pause"
+            >
+              {paused ? (
+                <svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor"><path d="M0 0 L12 7 L0 14 Z" /></svg>
+              ) : (
+                <svg width="12" height="14" viewBox="0 0 12 14" fill="currentColor"><rect x="0" y="0" width="4" height="14"/><rect x="8" y="0" width="4" height="14"/></svg>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Tactical hint */}
-        <div className="absolute bottom-6 left-0 right-0 z-10 text-center pointer-events-none">
-          <div
-            className="inline-block px-4 py-2 rounded-full text-[0.65rem] tracking-[0.4em] uppercase"
-            style={{
-              background: "oklch(0.15 0.03 265 / 0.6)",
-              color: "var(--muted-foreground)",
-              backdropFilter: "blur(6px)",
-              border: "1px solid var(--border)",
-            }}
-          >
-            Drag to aim &nbsp;•&nbsp; Release to dash
+        {!showTutorial && !victory && !defeat && !paused && (
+          <div className="absolute bottom-6 left-0 right-0 z-10 text-center pointer-events-none">
+            <div
+              className="inline-block px-4 py-2 rounded-full text-[0.65rem] tracking-[0.4em] uppercase"
+              style={{ background: "oklch(0.15 0.03 265 / 0.6)", color: "var(--muted-foreground)", backdropFilter: "blur(6px)", border: "1px solid var(--border)" }}
+            >
+              Drag to aim &nbsp;•&nbsp; Release to dash
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Pause / Victory overlays */}
-        {(paused || victory) && (
-          <div
-            className="absolute inset-0 z-20 flex items-center justify-center"
-            style={{ background: "oklch(0 0 0 / 0.65)", backdropFilter: "blur(8px)" }}
-          >
+        {/* Tutorial overlay */}
+        {showTutorial && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center" style={{ background: "oklch(0 0 0 / 0.72)", backdropFilter: "blur(10px)" }}>
+            <div
+              className="rounded-2xl p-7 border max-w-xs w-full mx-6"
+              style={{ background: "oklch(0.19 0.035 265 / 0.96)", borderColor: "var(--border)", boxShadow: "var(--shadow-deep)", animation: "logo-in 0.4s ease-out" }}
+            >
+              <p className="text-[0.6rem] tracking-[0.5em] uppercase mb-2" style={{ color: "var(--primary)" }}>How to play</p>
+              <h2 className="text-2xl mb-4" style={{ color: "var(--foreground)" }}>Every dash is a strike</h2>
+
+              <ul className="space-y-3 mb-6 text-sm" style={{ color: "var(--muted-foreground)" }}>
+                <TutorialRow n="1" title="Drag to aim">
+                  Time slows to a crawl. Plan your path.
+                </TutorialRow>
+                <TutorialRow n="2" title="Release to dash">
+                  Slice through every enemy on the line.
+                </TutorialRow>
+                <TutorialRow n="3" title="Clear the arena">
+                  Defeat all enemies. Avoid traps. Chain smart dashes.
+                </TutorialRow>
+              </ul>
+
+              {current.intro && (
+                <div
+                  className="text-xs mb-5 px-3 py-2 rounded-lg border"
+                  style={{ background: "oklch(0.13 0.03 265 / 0.7)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                >
+                  {current.intro}
+                </div>
+              )}
+
+              <button onClick={() => setShowTutorial(false)} className="btn-premium btn-premium-hover w-full">
+                Begin
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Pause / Victory / Defeat overlays */}
+        {(paused || victory || defeat) && !showTutorial && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background: "oklch(0 0 0 / 0.65)", backdropFilter: "blur(8px)" }}>
             <div
               className="rounded-2xl p-8 text-center border max-w-xs w-full mx-6"
-              style={{
-                background: "oklch(0.19 0.035 265 / 0.95)",
-                borderColor: "var(--border)",
-                boxShadow: "var(--shadow-deep)",
-                animation: "logo-in 0.3s ease-out",
-              }}
+              style={{ background: "oklch(0.19 0.035 265 / 0.95)", borderColor: "var(--border)", boxShadow: "var(--shadow-deep)", animation: "logo-in 0.3s ease-out" }}
             >
-              <h2 className="text-3xl mb-2" style={{ color: victory ? "var(--primary)" : "var(--foreground)" }}>
-                {victory ? "Victory" : "Paused"}
+              <h2 className="text-3xl mb-2" style={{ color: victory ? "var(--primary)" : defeat ? "oklch(0.7 0.2 25)" : "var(--foreground)" }}>
+                {victory ? (isFinal ? "All Clear" : "Victory") : defeat ? "Defeated" : "Paused"}
               </h2>
               <p className="text-xs tracking-widest uppercase mb-6" style={{ color: "var(--muted-foreground)" }}>
-                {victory ? "Arena cleared" : "The blade rests"}
+                {victory ? current.name : defeat ? "The blade falls" : "The blade rests"}
               </p>
               <div className="flex flex-col gap-3">
                 {victory ? (
-                  <button onClick={restart} className="btn-premium btn-premium-hover w-full">
-                    Play again
+                  <button onClick={nextLevel} className="btn-premium btn-premium-hover w-full">
+                    {isFinal ? "Restart run" : "Next level"}
+                  </button>
+                ) : defeat ? (
+                  <button onClick={restartLevel} className="btn-premium btn-premium-hover w-full">
+                    Retry level
                   </button>
                 ) : (
                   <button onClick={() => setPaused(false)} className="btn-premium btn-premium-hover w-full">
@@ -267,6 +424,23 @@ function PlayPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function TutorialRow({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span
+        className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[0.7rem] font-display"
+        style={{ background: "var(--gradient-gold)", color: "oklch(0.15 0.03 265)" }}
+      >
+        {n}
+      </span>
+      <span>
+        <span className="block text-[0.9rem]" style={{ color: "var(--foreground)" }}>{title}</span>
+        <span className="block text-xs" style={{ color: "var(--muted-foreground)" }}>{children}</span>
+      </span>
+    </li>
   );
 }
 
@@ -287,7 +461,7 @@ type GameState = {
     dashing: boolean;
     dashDir: Vec;
     dashTarget: Vec;
-    dashProgress: number; // 0..1
+    dashProgress: number;
     dashLen: number;
     facing: number;
     plantedTimer: number;
@@ -301,41 +475,22 @@ type GameState = {
   trail: TrailDot[];
   particles: Particle[];
   explosions: Explosion[];
+  projectiles: Projectile[];
   gold: number;
   aiming: boolean;
   aimStart: Vec;
   aimCurrent: Vec;
   shake: number;
-  slowRealMs: number; // time in ms of "real time" that overrides slowmo (during dash)
+  slowRealMs: number;
   time: number;
   victory: boolean;
+  defeat: boolean;
   bgTiles: { x: number; y: number; shade: number }[];
 };
 
-function createInitialState(): GameState {
-  const walls: Wall[] = [
-    // outer frame
-    { x: 0, y: 0, w: ARENA_W, h: 20 },
-    { x: 0, y: ARENA_H - 20, w: ARENA_W, h: 20 },
-    { x: 0, y: 0, w: 20, h: ARENA_H },
-    { x: ARENA_W - 20, y: 0, w: 20, h: ARENA_H },
-    // inner cover
-    { x: 80, y: 260, w: 90, h: 22 },
-    { x: 270, y: 260, w: 90, h: 22 },
-    { x: 180, y: 460, w: 80, h: 22 },
-    { x: 60, y: 580, w: 22, h: 90 },
-    { x: 358, y: 580, w: 22, h: 90 },
-  ];
-
-  const enemies: Enemy[] = [
-    mkEnemy(1, 120, 180, "grunt"),
-    mkEnemy(2, 320, 180, "grunt"),
-    mkEnemy(3, 100, 400, "grunt"),
-    mkEnemy(4, 340, 400, "grunt"),
-    mkEnemy(5, 220, 340, "brute"),
-    mkEnemy(6, 220, 540, "grunt"),
-    mkEnemy(7, 220, 660, "brute"),
-  ];
+function createLevelState(idx: number, carryHp: number, carryGold: number): GameState {
+  const def = LEVELS[idx];
+  const enemies: Enemy[] = def.enemies.map((e, i) => mkEnemy(i + 1, e.x, e.y, e.type));
 
   const bgTiles: GameState["bgTiles"] = [];
   const tile = 40;
@@ -347,8 +502,8 @@ function createInitialState(): GameState {
 
   return {
     player: {
-      pos: { x: ARENA_W / 2, y: ARENA_H - 120 },
-      hp: 3,
+      pos: { ...def.playerStart },
+      hp: carryHp,
       dashing: false,
       dashDir: { x: 0, y: -1 },
       dashTarget: { x: 0, y: 0 },
@@ -359,14 +514,15 @@ function createInitialState(): GameState {
       invuln: 0,
     },
     enemies,
-    walls,
-    barrels: [{ pos: { x: 220, y: 240 }, alive: true, radius: 16 }],
-    spikes: [{ pos: { x: 220, y: 620 }, radius: 22, phase: 0 }],
+    walls: def.walls,
+    barrels: def.barrels.map((p) => ({ pos: { ...p }, alive: true, radius: 16 })),
+    spikes: def.spikes.map((p) => ({ pos: { ...p }, radius: 22, phase: 0 })),
     slashes: [],
     trail: [],
     particles: [],
     explosions: [],
-    gold: 0,
+    projectiles: [],
+    gold: carryGold,
     aiming: false,
     aimStart: { x: 0, y: 0 },
     aimCurrent: { x: 0, y: 0 },
@@ -374,20 +530,34 @@ function createInitialState(): GameState {
     slowRealMs: 0,
     time: 0,
     victory: false,
+    defeat: false,
     bgTiles,
   };
 }
 
-function mkEnemy(id: number, x: number, y: number, type: "grunt" | "brute"): Enemy {
+function mkEnemy(id: number, x: number, y: number, type: EnemyType): Enemy {
+  const hpMap: Record<EnemyType, number> = { grunt: 1, brute: 2, archer: 1, shielder: 3, bomber: 1 };
   return {
     id,
     pos: { x, y },
     vel: { x: 0, y: 0 },
-    hp: type === "brute" ? 2 : 1,
+    hp: hpMap[type],
     alive: true,
     hitFlash: 0,
     type,
+    facing: Math.PI / 2,
+    shootCd: type === "archer" ? 1500 + Math.random() * 1000 : 0,
   };
+}
+
+function goldFor(type: EnemyType) {
+  switch (type) {
+    case "brute": return 25;
+    case "shielder": return 30;
+    case "archer": return 20;
+    case "bomber": return 15;
+    default: return 10;
+  }
 }
 
 /* ================= SIMULATION ================= */
@@ -395,25 +565,21 @@ function mkEnemy(id: number, x: number, y: number, type: "grunt" | "brute"): Ene
 function step(s: GameState, dtMsReal: number) {
   s.time += dtMsReal;
 
-  // Determine time scale: slowmo when aiming or idle. Real speed during dash for a brief window.
   const inRealTime = s.player.dashing || s.slowRealMs > 0;
   const scale = inRealTime ? 1 : SLOWMO_FACTOR;
   if (s.slowRealMs > 0) s.slowRealMs -= dtMsReal;
   const dt = (dtMsReal / 1000) * scale;
   const dtReal = dtMsReal / 1000;
 
-  // Shake decay (real time)
   s.shake *= Math.pow(0.001, dtReal);
   if (s.shake < 0.05) s.shake = 0;
 
-  // Player invuln decay (real time)
   if (s.player.invuln > 0) s.player.invuln -= dtMsReal;
 
-  // Aim spike animation on the sword-plant
   if (!s.player.dashing) s.player.plantedTimer += dtReal;
   else s.player.plantedTimer = 0;
 
-  // Dash movement (real time)
+  // Dash movement
   if (s.player.dashing) {
     const p = s.player;
     const moveDist = DASH_SPEED * dtReal;
@@ -422,14 +588,13 @@ function step(s: GameState, dtMsReal: number) {
     const nx = p.dashTarget.x - p.pos.x;
     const ny = p.dashTarget.y - p.pos.y;
     const rem = Math.hypot(nx, ny);
-    const step = Math.min(moveDist, rem);
+    const stepD = Math.min(moveDist, rem);
     const dirx = rem > 0.01 ? nx / rem : p.dashDir.x;
     const diry = rem > 0.01 ? ny / rem : p.dashDir.y;
     const prev = { ...p.pos };
-    p.pos.x += dirx * step;
-    p.pos.y += diry * step;
+    p.pos.x += dirx * stepD;
+    p.pos.y += diry * stepD;
 
-    // Wall collision — stop at wall
     for (const w of s.walls) {
       if (circleRectHit(p.pos, PLAYER_R, w)) {
         p.pos.x = prev.x;
@@ -449,35 +614,58 @@ function step(s: GameState, dtMsReal: number) {
       }
     }
 
-    // Trail
     s.trail.push({ pos: { ...p.pos }, life: 350 });
 
     // Hit enemies in path
     for (const e of s.enemies) {
       if (!e.alive) continue;
-      if (dist(e.pos, p.pos) < PLAYER_R + 16) {
+      const r = enemyRadius(e.type);
+      if (dist(e.pos, p.pos) < PLAYER_R + r) {
+        // Shielder: check facing — dash coming from front is blocked
+        if (e.type === "shielder") {
+          const toPlayer = Math.atan2(p.pos.y - e.pos.y, p.pos.x - e.pos.x);
+          const diff = Math.abs(angDelta(toPlayer, e.facing));
+          if (diff < Math.PI / 2.4) {
+            // blocked — spark, small knockback of player, no damage
+            s.shake = Math.max(s.shake, 12);
+            for (let i = 0; i < 14; i++) {
+              const a = Math.random() * Math.PI * 2;
+              s.particles.push({
+                pos: { ...e.pos },
+                vel: { x: Math.cos(a) * 260, y: Math.sin(a) * 260 },
+                life: 350, max: 350,
+                color: "oklch(0.9 0.14 85)",
+                size: 2 + Math.random() * 2,
+              });
+            }
+            // stop the dash
+            p.pos.x = prev.x;
+            p.pos.y = prev.y;
+            p.dashProgress = 1;
+            continue;
+          }
+        }
         e.hp -= 1;
         e.hitFlash = 200;
         s.shake = Math.max(s.shake, 10);
         spawnHitBurst(s, e.pos);
         if (e.hp <= 0) {
           e.alive = false;
-          s.gold += e.type === "brute" ? 25 : 10;
+          s.gold += goldFor(e.type);
           spawnDeathBurst(s, e.pos);
+          if (e.type === "bomber") explodeAt(s, e.pos, 78, true);
         }
       }
     }
 
-    // Hit barrels
     for (const b of s.barrels) {
       if (!b.alive) continue;
       if (dist(b.pos, p.pos) < PLAYER_R + b.radius) {
         b.alive = false;
-        explodeBarrel(s, b.pos);
+        explodeAt(s, b.pos, 90, false);
       }
     }
 
-    // Slash streak at midpoint of dash
     if (p.dashProgress > 0.5 && s.slashes.length === 0) {
       const perpx = -diry, perpy = dirx;
       const cx = (prev.x + p.pos.x) / 2;
@@ -498,28 +686,90 @@ function step(s: GameState, dtMsReal: number) {
     }
   }
 
-  // Enemies slowly chase player (uses slowed dt)
+  // Enemies (slowed)
   for (const e of s.enemies) {
     if (!e.alive) continue;
     if (e.hitFlash > 0) e.hitFlash -= dtMsReal;
     const dx = s.player.pos.x - e.pos.x;
     const dy = s.player.pos.y - e.pos.y;
     const d = Math.hypot(dx, dy) || 1;
-    const speed = e.type === "brute" ? 22 : 34;
+    e.facing = Math.atan2(dy, dx);
+
+    // Movement per type
+    let speed = 0;
+    switch (e.type) {
+      case "grunt": speed = 34; break;
+      case "brute": speed = 22; break;
+      case "archer": speed = d < 160 ? -30 : d > 260 ? 20 : 0; break; // keeps distance
+      case "shielder": speed = 26; break;
+      case "bomber": speed = 46; break;
+    }
     e.vel.x = (dx / d) * speed;
     e.vel.y = (dy / d) * speed;
     e.pos.x += e.vel.x * dt;
     e.pos.y += e.vel.y * dt;
 
-    // Damage player if touching (only real-time-ish; small chance) — during real time only
-    if (inRealTime && s.player.invuln <= 0 && dist(e.pos, s.player.pos) < 24) {
+    // Archer shooting (real-time; uses real ms so slowmo makes them look thoughtful)
+    if (e.type === "archer") {
+      e.shootCd -= dtMsReal;
+      if (e.shootCd <= 0) {
+        e.shootCd = 2200 + Math.random() * 600;
+        const sp = 210;
+        s.projectiles.push({
+          pos: { ...e.pos },
+          vel: { x: (dx / d) * sp, y: (dy / d) * sp },
+          life: 3000,
+          radius: 5,
+        });
+      }
+    }
+
+    // Bomber self-detonation on touch
+    if (e.type === "bomber" && d < 26 && inRealTime && s.player.invuln <= 0) {
+      e.alive = false;
+      spawnDeathBurst(s, e.pos);
+      explodeAt(s, e.pos, 78, true);
+      continue;
+    }
+
+    // Melee damage on touch (real-time only)
+    if (inRealTime && s.player.invuln <= 0 && e.type !== "archer" && d < 24) {
       s.player.hp = Math.max(0, s.player.hp - 1);
       s.player.invuln = 900;
       s.shake = 12;
     }
   }
 
-  // Spikes damage on step-over during dash pass
+  // Projectiles (real time — they visibly slow during aim thanks to global scale not applied; but we want them to slow too)
+  for (const pr of s.projectiles) {
+    pr.pos.x += pr.vel.x * dt;
+    pr.pos.y += pr.vel.y * dt;
+    pr.life -= dtMsReal;
+    // hit walls
+    for (const w of s.walls) {
+      if (pr.pos.x > w.x && pr.pos.x < w.x + w.w && pr.pos.y > w.y && pr.pos.y < w.y + w.h) {
+        pr.life = 0;
+        for (let i = 0; i < 6; i++) {
+          s.particles.push({
+            pos: { ...pr.pos },
+            vel: { x: (Math.random() - 0.5) * 200, y: (Math.random() - 0.5) * 200 },
+            life: 300, max: 300, color: "oklch(0.85 0.18 55)", size: 1.5,
+          });
+        }
+        break;
+      }
+    }
+    // hit player
+    if (pr.life > 0 && s.player.invuln <= 0 && dist(pr.pos, s.player.pos) < PLAYER_R + pr.radius) {
+      pr.life = 0;
+      s.player.hp = Math.max(0, s.player.hp - 1);
+      s.player.invuln = 900;
+      s.shake = Math.max(s.shake, 10);
+    }
+  }
+  s.projectiles = s.projectiles.filter((p) => p.life > 0);
+
+  // Spikes
   for (const sp of s.spikes) {
     sp.phase += dtReal * 2;
     if (s.player.dashing && dist(sp.pos, s.player.pos) < sp.radius + 6 && s.player.invuln <= 0) {
@@ -529,15 +779,12 @@ function step(s: GameState, dtMsReal: number) {
     }
   }
 
-  // Trail decay (real time so it fades naturally)
   for (const t of s.trail) t.life -= dtMsReal;
   s.trail = s.trail.filter((t) => t.life > 0);
 
-  // Slashes
   for (const sl of s.slashes) sl.life -= dtMsReal;
   s.slashes = s.slashes.filter((sl) => sl.life > 0);
 
-  // Particles
   for (const p of s.particles) {
     p.life -= dtMsReal;
     p.pos.x += p.vel.x * dtReal;
@@ -551,16 +798,30 @@ function step(s: GameState, dtMsReal: number) {
   s.explosions = s.explosions.filter((ex) => ex.life > 0);
 }
 
+function enemyRadius(t: EnemyType): number {
+  switch (t) {
+    case "brute": return 18;
+    case "shielder": return 17;
+    case "bomber": return 13;
+    case "archer": return 13;
+    default: return 14;
+  }
+}
+
+function angDelta(a: number, b: number) {
+  let d = a - b;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
 function spawnHitBurst(s: GameState, at: Vec) {
   for (let i = 0; i < 12; i++) {
     const a = Math.random() * Math.PI * 2;
     const sp = 200 + Math.random() * 300;
     s.particles.push({
-      pos: { ...at },
-      vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
-      life: 350, max: 350,
-      color: "oklch(0.88 0.12 210)",
-      size: 2 + Math.random() * 2,
+      pos: { ...at }, vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
+      life: 350, max: 350, color: "oklch(0.88 0.12 210)", size: 2 + Math.random() * 2,
     });
   }
 }
@@ -569,63 +830,60 @@ function spawnDeathBurst(s: GameState, at: Vec) {
     const a = Math.random() * Math.PI * 2;
     const sp = 100 + Math.random() * 400;
     s.particles.push({
-      pos: { ...at },
-      vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
+      pos: { ...at }, vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
       life: 600, max: 600,
       color: Math.random() > 0.5 ? "oklch(0.65 0.22 20)" : "oklch(0.82 0.16 85)",
       size: 2 + Math.random() * 3,
     });
   }
 }
-function explodeBarrel(s: GameState, at: Vec) {
-  s.explosions.push({ pos: { ...at }, life: 400, max: 400, radius: 90 });
+function explodeAt(s: GameState, at: Vec, radius: number, damagePlayer: boolean) {
+  s.explosions.push({ pos: { ...at }, life: 400, max: 400, radius });
   s.shake = Math.max(s.shake, 16);
   for (let i = 0; i < 40; i++) {
     const a = Math.random() * Math.PI * 2;
     const sp = 200 + Math.random() * 600;
     s.particles.push({
-      pos: { ...at },
-      vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
+      pos: { ...at }, vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
       life: 700, max: 700,
       color: Math.random() > 0.4 ? "oklch(0.72 0.22 35)" : "oklch(0.9 0.15 80)",
       size: 2 + Math.random() * 4,
     });
   }
-  // damage nearby enemies
   for (const e of s.enemies) {
     if (!e.alive) continue;
-    if (dist(e.pos, at) < 90) {
+    if (dist(e.pos, at) < radius) {
       e.hp -= 2;
       e.hitFlash = 250;
       if (e.hp <= 0) {
         e.alive = false;
-        s.gold += e.type === "brute" ? 25 : 10;
+        s.gold += goldFor(e.type);
         spawnDeathBurst(s, e.pos);
       }
     }
+  }
+  if (damagePlayer && dist(s.player.pos, at) < radius && s.player.invuln <= 0) {
+    s.player.hp = Math.max(0, s.player.hp - 1);
+    s.player.invuln = 900;
   }
 }
 
 /* ================= RENDER ================= */
 
 function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
-  // Compute scale to fit canvas rect to ARENA
   const sx = rect.width / ARENA_W;
   const sy = rect.height / ARENA_H;
   ctx.save();
   ctx.scale(sx, sy);
 
-  // Shake
   const sk = s.shake;
   const shx = (Math.random() - 0.5) * sk;
   const shy = (Math.random() - 0.5) * sk;
   ctx.translate(shx, shy);
 
-  // Background floor
   ctx.fillStyle = "oklch(0.16 0.03 262)";
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 
-  // Tile pattern
   for (const t of s.bgTiles) {
     ctx.fillStyle = `oklch(${0.17 + t.shade * 0.03} 0.03 262)`;
     ctx.fillRect(t.x, t.y, 40, 40);
@@ -634,17 +892,12 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     ctx.strokeRect(t.x + 0.5, t.y + 0.5, 39, 39);
   }
 
-  // Vignette hint of light around player
-  const grd = ctx.createRadialGradient(
-    s.player.pos.x, s.player.pos.y, 20,
-    s.player.pos.x, s.player.pos.y, 260
-  );
+  const grd = ctx.createRadialGradient(s.player.pos.x, s.player.pos.y, 20, s.player.pos.x, s.player.pos.y, 260);
   grd.addColorStop(0, "oklch(0.85 0.15 60 / 0.18)");
   grd.addColorStop(1, "transparent");
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 
-  // Walls
   for (const w of s.walls) {
     ctx.fillStyle = "oklch(0.28 0.04 265)";
     ctx.fillRect(w.x, w.y, w.w, w.h);
@@ -655,16 +908,13 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     ctx.strokeRect(w.x + 0.5, w.y + 0.5, w.w - 1, w.h - 1);
   }
 
-  // Spike trap
   for (const sp of s.spikes) {
     ctx.save();
     ctx.translate(sp.pos.x, sp.pos.y);
-    // base
     ctx.fillStyle = "oklch(0.22 0.03 265)";
     ctx.beginPath();
     ctx.arc(0, 0, sp.radius, 0, Math.PI * 2);
     ctx.fill();
-    // spikes
     const wobble = Math.sin(sp.phase) * 0.15 + 0.85;
     ctx.fillStyle = "oklch(0.8 0.05 240)";
     for (let i = 0; i < 8; i++) {
@@ -686,17 +936,14 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     ctx.restore();
   }
 
-  // Barrels
   for (const b of s.barrels) {
     if (!b.alive) continue;
     ctx.save();
     ctx.translate(b.pos.x, b.pos.y);
-    // shadow
     ctx.fillStyle = "oklch(0 0 0 / 0.35)";
     ctx.beginPath();
     ctx.ellipse(2, b.radius - 2, b.radius, b.radius * 0.35, 0, 0, Math.PI * 2);
     ctx.fill();
-    // body
     const bg = ctx.createLinearGradient(-b.radius, 0, b.radius, 0);
     bg.addColorStop(0, "oklch(0.45 0.12 40)");
     bg.addColorStop(1, "oklch(0.3 0.1 30)");
@@ -704,14 +951,12 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     ctx.beginPath();
     ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
     ctx.fill();
-    // rings
     ctx.strokeStyle = "oklch(0.2 0.05 30)";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(-b.radius, -4); ctx.lineTo(b.radius, -4);
     ctx.moveTo(-b.radius, 4); ctx.lineTo(b.radius, 4);
     ctx.stroke();
-    // fuse glow
     const glow = 0.5 + Math.sin(s.time * 0.01) * 0.5;
     ctx.fillStyle = `oklch(0.85 0.2 60 / ${0.4 + glow * 0.4})`;
     ctx.beginPath();
@@ -720,7 +965,6 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     ctx.restore();
   }
 
-  // Trail
   for (const t of s.trail) {
     const a = t.life / 350;
     ctx.fillStyle = `oklch(0.88 0.12 210 / ${a * 0.7})`;
@@ -729,45 +973,38 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     ctx.fill();
   }
 
-  // Enemies
   for (const e of s.enemies) {
     if (!e.alive) continue;
+    drawEnemy(ctx, e, s.time);
+  }
+
+  // Projectiles
+  for (const pr of s.projectiles) {
     ctx.save();
-    ctx.translate(e.pos.x, e.pos.y);
-    // shadow
-    ctx.fillStyle = "oklch(0 0 0 / 0.4)";
+    ctx.translate(pr.pos.x, pr.pos.y);
+    const ang = Math.atan2(pr.vel.y, pr.vel.x);
+    ctx.rotate(ang);
+    ctx.shadowColor = "oklch(0.85 0.18 55)";
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = "oklch(0.95 0.15 70)";
     ctx.beginPath();
-    ctx.ellipse(1, 12, 14, 5, 0, 0, Math.PI * 2);
+    ctx.moveTo(8, 0);
+    ctx.lineTo(-6, 3);
+    ctx.lineTo(-6, -3);
+    ctx.closePath();
     ctx.fill();
-    // body
-    const flash = e.hitFlash > 0 ? 1 : 0;
-    const r = e.type === "brute" ? 18 : 14;
-    const bodyCol = flash
-      ? "oklch(0.98 0.02 210)"
-      : e.type === "brute" ? "oklch(0.45 0.15 320)" : "oklch(0.5 0.16 340)";
-    ctx.fillStyle = bodyCol;
+    ctx.strokeStyle = "oklch(0.6 0.15 40 / 0.7)";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
-    // eye slit
-    ctx.fillStyle = flash ? "oklch(0.2 0.02 210)" : "oklch(0.95 0.2 25)";
-    ctx.fillRect(-4, -3, 8, 2);
-    // outline
-    ctx.strokeStyle = "oklch(0.15 0.05 320)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.moveTo(-6, 0); ctx.lineTo(-16, 0);
     ctx.stroke();
     ctx.restore();
   }
 
-  // Player
   drawPlayer(ctx, s);
 
-  // Aim preview
   if (s.aiming) drawAim(ctx, s);
 
-  // Slashes
   for (const sl of s.slashes) {
     const a = sl.life / sl.max;
     ctx.save();
@@ -783,11 +1020,8 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     ctx.restore();
   }
 
-  // Particles
   for (const p of s.particles) {
     const a = p.life / p.max;
-    ctx.fillStyle = p.color.replace(")", ` / ${a})`).replace("oklch(", "oklch(");
-    // fallback: draw with globalAlpha
     ctx.globalAlpha = a;
     ctx.fillStyle = p.color;
     ctx.beginPath();
@@ -796,7 +1030,6 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     ctx.globalAlpha = 1;
   }
 
-  // Explosions
   for (const ex of s.explosions) {
     const a = ex.life / ex.max;
     const rr = ex.radius * (1 - a);
@@ -810,7 +1043,6 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     ctx.fill();
   }
 
-  // Slow-mo vignette when planning
   if (!s.player.dashing && s.slowRealMs <= 0) {
     const vg = ctx.createRadialGradient(
       ARENA_W / 2, ARENA_H / 2, ARENA_W * 0.35,
@@ -820,9 +1052,135 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     vg.addColorStop(1, "oklch(0.05 0.02 265 / 0.55)");
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, ARENA_W, ARENA_H);
-    // subtle cool tint
     ctx.fillStyle = "oklch(0.5 0.1 220 / 0.05)";
     ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  }
+
+  ctx.restore();
+}
+
+function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
+  ctx.save();
+  ctx.translate(e.pos.x, e.pos.y);
+
+  // shadow
+  ctx.fillStyle = "oklch(0 0 0 / 0.4)";
+  ctx.beginPath();
+  ctx.ellipse(1, 12, 14, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const flash = e.hitFlash > 0 ? 1 : 0;
+  const r = enemyRadius(e.type);
+
+  let bodyCol = "oklch(0.5 0.16 340)";
+  let outline = "oklch(0.15 0.05 320)";
+  let eyeCol = "oklch(0.95 0.2 25)";
+  switch (e.type) {
+    case "brute": bodyCol = "oklch(0.45 0.15 320)"; break;
+    case "archer": bodyCol = "oklch(0.55 0.15 155)"; outline = "oklch(0.2 0.06 155)"; eyeCol = "oklch(0.92 0.2 100)"; break;
+    case "shielder": bodyCol = "oklch(0.45 0.08 260)"; outline = "oklch(0.15 0.04 260)"; eyeCol = "oklch(0.9 0.15 210)"; break;
+    case "bomber": bodyCol = "oklch(0.55 0.2 40)"; outline = "oklch(0.2 0.08 40)"; eyeCol = "oklch(0.95 0.2 80)"; break;
+  }
+  if (flash) { bodyCol = "oklch(0.98 0.02 210)"; eyeCol = "oklch(0.2 0.02 210)"; }
+
+  ctx.fillStyle = bodyCol;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // eye slit
+  ctx.fillStyle = eyeCol;
+  ctx.fillRect(-4, -3, 8, 2);
+
+  // Per-type accessories
+  if (e.type === "shielder") {
+    ctx.save();
+    ctx.rotate(e.facing);
+    // shield in front (facing direction)
+    const shieldD = r + 4;
+    ctx.translate(shieldD, 0);
+    ctx.fillStyle = flash ? "oklch(0.95 0.05 210)" : "oklch(0.75 0.12 240)";
+    ctx.strokeStyle = "oklch(0.25 0.05 240)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -12);
+    ctx.quadraticCurveTo(8, 0, 0, 12);
+    ctx.quadraticCurveTo(-2, 0, 0, -12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // rivet
+    ctx.fillStyle = "oklch(0.85 0.16 80)";
+    ctx.beginPath();
+    ctx.arc(2, 0, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  if (e.type === "archer") {
+    ctx.save();
+    ctx.rotate(e.facing);
+    ctx.strokeStyle = flash ? "oklch(0.95 0.05 210)" : "oklch(0.82 0.16 85)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(r + 2, 0, 8, -Math.PI / 2.2, Math.PI / 2.2);
+    ctx.stroke();
+    // string
+    ctx.strokeStyle = "oklch(0.9 0.02 240 / 0.7)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(r + 2, -6.5);
+    ctx.lineTo(r + 2, 6.5);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (e.type === "bomber") {
+    // pulsing fuse
+    const pulse = 0.5 + Math.sin(time * 0.02) * 0.5;
+    ctx.fillStyle = `oklch(0.92 0.2 80 / ${0.5 + pulse * 0.5})`;
+    ctx.beginPath();
+    ctx.arc(0, -r - 3, 3 + pulse * 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    // cross-hatch danger
+    ctx.strokeStyle = "oklch(0.3 0.1 40)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.6, -r * 0.2); ctx.lineTo(r * 0.6, r * 0.2);
+    ctx.moveTo(-r * 0.6, r * 0.2); ctx.lineTo(r * 0.6, -r * 0.2);
+    ctx.stroke();
+  }
+
+  if (e.type === "brute") {
+    // shoulder spikes
+    ctx.fillStyle = "oklch(0.7 0.05 260)";
+    ctx.beginPath();
+    ctx.moveTo(-r + 2, -r + 4); ctx.lineTo(-r - 4, -r - 2); ctx.lineTo(-r + 2, -r - 2);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(r - 2, -r + 4); ctx.lineTo(r + 4, -r - 2); ctx.lineTo(r - 2, -r - 2);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // hp pips for multi-hp
+  if (e.hp > 1 && e.type !== "shielder") {
+    ctx.fillStyle = "oklch(0.9 0.02 260 / 0.85)";
+    for (let i = 0; i < e.hp; i++) {
+      ctx.beginPath();
+      ctx.arc(-4 + i * 4, -r - 6, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  if (e.type === "shielder") {
+    ctx.fillStyle = "oklch(0.9 0.02 260 / 0.85)";
+    for (let i = 0; i < e.hp; i++) {
+      ctx.beginPath();
+      ctx.arc(-4 + i * 4, -r - 6, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   ctx.restore();
@@ -832,7 +1190,6 @@ function drawPlayer(ctx: CanvasRenderingContext2D, s: GameState) {
   const p = s.player;
   ctx.save();
   ctx.translate(p.pos.x, p.pos.y);
-  // shadow
   ctx.fillStyle = "oklch(0 0 0 / 0.45)";
   ctx.beginPath();
   ctx.ellipse(2, 14, 16, 6, 0, 0, Math.PI * 2);
@@ -841,7 +1198,6 @@ function drawPlayer(ctx: CanvasRenderingContext2D, s: GameState) {
   const flicker = p.invuln > 0 && Math.floor(p.invuln / 60) % 2 === 0 ? 0.4 : 1;
   ctx.globalAlpha = flicker;
 
-  // cape/aura
   const auraR = 22 + Math.sin(s.time * 0.004) * 2;
   const aura = ctx.createRadialGradient(0, 0, 8, 0, 0, auraR);
   aura.addColorStop(0, "oklch(0.88 0.12 210 / 0.5)");
@@ -851,7 +1207,6 @@ function drawPlayer(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.arc(0, 0, auraR, 0, Math.PI * 2);
   ctx.fill();
 
-  // body
   const bg = ctx.createLinearGradient(-PLAYER_R, -PLAYER_R, PLAYER_R, PLAYER_R);
   bg.addColorStop(0, "oklch(0.95 0.03 250)");
   bg.addColorStop(1, "oklch(0.6 0.1 250)");
@@ -863,21 +1218,17 @@ function drawPlayer(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // helmet stripe
   ctx.fillStyle = "oklch(0.75 0.18 55)";
   ctx.fillRect(-3, -PLAYER_R + 2, 6, 6);
 
-  // Sword: planted in ground when idle, forward when dashing
   ctx.rotate(p.facing + Math.PI / 2);
   if (!p.dashing) {
-    // planted sword — points down (into ground), slight sway
     const sway = Math.sin(s.time * 0.002) * 0.03;
     ctx.rotate(sway);
     ctx.fillStyle = "oklch(0.45 0.1 40)";
-    ctx.fillRect(-2, 6, 4, 10); // hilt
+    ctx.fillRect(-2, 6, 4, 10);
     ctx.fillStyle = "oklch(0.85 0.16 80)";
-    ctx.fillRect(-6, 14, 12, 3); // crossguard
-    // blade going down into the earth
+    ctx.fillRect(-6, 14, 12, 3);
     const bg2 = ctx.createLinearGradient(0, 16, 0, 40);
     bg2.addColorStop(0, "oklch(0.95 0.05 210)");
     bg2.addColorStop(1, "oklch(0.55 0.1 220)");
@@ -889,13 +1240,11 @@ function drawPlayer(ctx: CanvasRenderingContext2D, s: GameState) {
     ctx.lineTo(-1, 40);
     ctx.closePath();
     ctx.fill();
-    // planted glow
     ctx.fillStyle = "oklch(0.88 0.12 210 / 0.35)";
     ctx.beginPath();
     ctx.ellipse(0, 40, 8, 3, 0, 0, Math.PI * 2);
     ctx.fill();
   } else {
-    // held forward
     ctx.fillStyle = "oklch(0.45 0.1 40)";
     ctx.fillRect(-2, -6, 4, 10);
     ctx.fillStyle = "oklch(0.85 0.16 80)";
@@ -927,7 +1276,6 @@ function drawAim(ctx: CanvasRenderingContext2D, s: GameState) {
   const tx = p.x + nx * dashLen;
   const ty = p.y + ny * dashLen;
 
-  // outer glow line
   ctx.save();
   ctx.strokeStyle = "oklch(0.88 0.12 210 / 0.25)";
   ctx.lineWidth = 22;
@@ -937,7 +1285,6 @@ function drawAim(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.lineTo(tx, ty);
   ctx.stroke();
 
-  // dashed core
   ctx.strokeStyle = "oklch(0.95 0.05 210)";
   ctx.lineWidth = 3;
   ctx.setLineDash([10, 8]);
@@ -948,7 +1295,6 @@ function drawAim(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Arrow head
   const ang = Math.atan2(ny, nx);
   ctx.translate(tx, ty);
   ctx.rotate(ang);
@@ -962,7 +1308,6 @@ function drawAim(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.fill();
   ctx.restore();
 
-  // Impact ring at end
   ctx.strokeStyle = "oklch(0.75 0.18 55 / 0.6)";
   ctx.lineWidth = 2;
   ctx.beginPath();
