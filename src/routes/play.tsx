@@ -629,23 +629,30 @@ function createLevelState(idx: number, carryHp: number, carryGold: number): Game
 }
 
 function mkEnemy(id: number, x: number, y: number, type: EnemyType): Enemy {
-  const hpMap: Record<EnemyType, number> = { grunt: 1, brute: 2, archer: 1, shielder: 3, bomber: 1 };
+  const hpMap: Record<EnemyType, number> = { grunt: 1, brute: 2, archer: 1, shielder: 3, bomber: 1, boss: 14 };
   return {
     id,
     pos: { x, y },
     vel: { x: 0, y: 0 },
     hp: hpMap[type],
+    maxHp: hpMap[type],
     alive: true,
     hitFlash: 0,
     type,
     facing: Math.PI / 2,
     shootCd: type === "archer" ? 1200 + Math.random() * 800 : 0,
     fuse: 0,
+    slamCd: 2600,
+    slamCharge: 0,
+    slamPos: { x, y },
+    volleyCd: 3400,
+    phase: 0,
   };
 }
 
 function goldFor(type: EnemyType) {
   switch (type) {
+    case "boss": return 250;
     case "brute": return 25;
     case "shielder": return 30;
     case "archer": return 20;
@@ -653,6 +660,7 @@ function goldFor(type: EnemyType) {
     default: return 10;
   }
 }
+
 
 /* ================= SIMULATION ================= */
 
