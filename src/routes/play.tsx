@@ -1167,6 +1167,29 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
     ctx.fill();
   }
 
+  // Slam telegraphs (drawn beneath enemies)
+  for (const e of s.enemies) {
+    if (!e.alive || e.type !== "boss" || e.slamCharge <= 0) continue;
+    const maxCharge = e.phase === 1 ? 700 : 900;
+    const t = 1 - e.slamCharge / maxCharge;
+    const r = (e.phase === 1 ? 105 : 88);
+    const pulse = 0.6 + Math.sin(s.time * 0.03) * 0.4;
+    const eg = ctx.createRadialGradient(e.slamPos.x, e.slamPos.y, r * 0.2, e.slamPos.x, e.slamPos.y, r);
+    eg.addColorStop(0, `oklch(0.7 0.28 25 / ${0.15 + t * 0.35})`);
+    eg.addColorStop(1, "transparent");
+    ctx.fillStyle = eg;
+    ctx.beginPath();
+    ctx.arc(e.slamPos.x, e.slamPos.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `oklch(0.75 0.28 25 / ${0.5 + pulse * 0.4})`;
+    ctx.lineWidth = 2 + t * 2;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.arc(e.slamPos.x, e.slamPos.y, r * (0.6 + t * 0.4), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   for (const e of s.enemies) {
     if (!e.alive) continue;
     drawEnemy(ctx, e, s.time);
