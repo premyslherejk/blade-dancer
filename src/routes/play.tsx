@@ -642,7 +642,7 @@ function mkEnemy(id: number, x: number, y: number, type: EnemyType): Enemy {
     hitFlash: 0,
     type,
     facing: Math.PI / 2,
-    shootCd: type === "archer" ? 1200 + Math.random() * 800 : 0,
+    shootCd: type === "archer" ? 1600 + Math.random() * 900 : 0,
     fuse: 0,
     slamCd: 2600,
     slamCharge: 0,
@@ -857,7 +857,7 @@ function step(s: GameState, dtMsReal: number) {
     if (e.type === "archer") {
       e.shootCd -= dtMsReal;
       if (e.shootCd <= 0 && d < 700) {
-        e.shootCd = 1800 + Math.random() * 700;
+        e.shootCd = 2300 + Math.random() * 800;
         const sp = 340;
         s.projectiles.push({
           pos: { ...e.pos },
@@ -879,7 +879,7 @@ function step(s: GameState, dtMsReal: number) {
         if (e.fuse <= 0) {
           e.alive = false;
           spawnDeathBurst(s, e.pos);
-          explodeAt(s, e.pos, 110, true);
+          explodeAt(s, e.pos, 78, true);
           continue;
         }
       }
@@ -922,9 +922,9 @@ function step(s: GameState, dtMsReal: number) {
       }
     }
 
-    // Melee damage on touch (real-time only) — archers & bombers don't melee
+    // Melee damage on touch — only when player is NOT dashing (dash = i-frames + attack)
     if (
-      inRealTime && s.player.invuln <= 0 &&
+      inRealTime && !s.player.dashing && s.player.invuln <= 0 &&
       e.type !== "archer" && e.type !== "bomber" &&
       d < enemyRadius(e.type) + PLAYER_R - 2
     ) {
