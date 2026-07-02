@@ -35,6 +35,8 @@ type TrailDot = { pos: Vec; life: number };
 type Particle = { pos: Vec; vel: Vec; life: number; max: number; color: string; size: number };
 type Explosion = { pos: Vec; life: number; max: number; radius: number };
 type Projectile = { pos: Vec; vel: Vec; life: number; radius: number };
+type Prop = { kind: "moss" | "rock" | "grass" | "skull" | "crack" | "flower" | "pebble"; x: number; y: number; rot: number; size: number; seed: number };
+type Torch = { x: number; y: number; flicker: number };
 
 /* ---------- Constants ---------- */
 const ARENA_W = 440;
