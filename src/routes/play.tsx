@@ -203,9 +203,9 @@ const LEVEL_V: LevelDef = {
 };
 
 const LEVEL_BOSS: LevelDef = {
-  name: "VI · The Warlord",
-  subtitle: "Boss — Iron Warlord of the Ash",
-  intro: "The Warlord slams the ground and fires radial arcs. Dash between telegraphs and strike his back. He enrages below half HP.",
+    name: "VI · The Warlord",
+    subtitle: "Boss — Iron Warlord of the Ash",
+    intro: "The Warlord slams the ground and fires radial arcs. Dash between telegraphs and strike his back. He enrages below 25% HP.",
   playerStart: { x: ARENA_W / 2, y: ARENA_H - 80 },
   walls: [
     ...OUTER,
@@ -644,10 +644,10 @@ function mkEnemy(id: number, x: number, y: number, type: EnemyType): Enemy {
     facing: Math.PI / 2,
     shootCd: type === "archer" ? 1600 + Math.random() * 900 : 0,
     fuse: 0,
-    slamCd: 2600,
+    slamCd: 5200,
     slamCharge: 0,
     slamPos: { x, y },
-    volleyCd: 3400,
+    volleyCd: 4800,
     phase: 0,
   };
 }
@@ -828,7 +828,7 @@ function step(s: GameState, dtMsReal: number) {
       case "shielder": speed = 26; break;
       case "bomber": speed = e.fuse > 0 ? 10 : 52; break;
       case "boss": {
-        const enraged = e.hp <= e.maxHp / 2;
+        const enraged = e.hp <= e.maxHp * 0.25;
         e.phase = enraged ? 1 : 0;
         // charging slam → freeze in place
         speed = e.slamCharge > 0 ? 0 : (enraged ? 44 : 26);
@@ -888,26 +888,26 @@ function step(s: GameState, dtMsReal: number) {
     // Boss: telegraphed slam + radial volleys
     if (e.type === "boss") {
       const enraged = e.phase === 1;
-      // Slam
+      // Slam (1.6s telegraph, 2x longer cooldown than before)
       if (e.slamCharge > 0) {
         e.slamCharge -= dtMsReal;
         if (e.slamCharge <= 0) {
           explodeAt(s, e.slamPos, enraged ? 105 : 88, true);
-          e.slamCd = enraged ? 1900 : 2800;
+          e.slamCd = enraged ? 4160 : 5200;
         }
       } else {
         e.slamCd -= dtMsReal;
         if (e.slamCd <= 0 && d < 340) {
           // lock target on player's current spot
           e.slamPos = { ...s.player.pos };
-          e.slamCharge = enraged ? 700 : 900;
+          e.slamCharge = 1600;
         }
       }
       // Radial volley
       e.volleyCd -= dtMsReal;
       if (e.volleyCd <= 0) {
-        e.volleyCd = enraged ? 2200 : 3400;
-        const count = enraged ? 10 : 8;
+        e.volleyCd = enraged ? 3840 : 4800;
+        const count = enraged ? 6 : 4;
         const sp = 260;
         const off = Math.random() * Math.PI * 2;
         for (let i = 0; i < count; i++) {
@@ -1172,7 +1172,7 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
   // Slam telegraphs (drawn beneath enemies)
   for (const e of s.enemies) {
     if (!e.alive || e.type !== "boss" || e.slamCharge <= 0) continue;
-    const maxCharge = e.phase === 1 ? 700 : 900;
+    const maxCharge = 1600;
     const t = 1 - e.slamCharge / maxCharge;
     const r = (e.phase === 1 ? 105 : 88);
     const pulse = 0.6 + Math.sin(s.time * 0.03) * 0.4;
