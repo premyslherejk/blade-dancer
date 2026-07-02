@@ -580,7 +580,9 @@ type GameState = {
   time: number;
   victory: boolean;
   defeat: boolean;
-  bgTiles: { x: number; y: number; shade: number }[];
+  props: Prop[];
+  torches: Torch[];
+  floorSeed: number;
 };
 
 function createLevelState(idx: number, carryHp: number, carryGold: number): GameState {
