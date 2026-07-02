@@ -77,14 +77,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Bladestep — Tactical Dash Combat" },
+      { name: "description", content: "A premium top-down tactical dash-combat prototype. Every dash is movement, every dash is a blade." },
+      { name: "author", content: "Bladestep" },
+      { property: "og:title", content: "Bladestep — Tactical Dash Combat" },
+      { property: "og:description", content: "A premium top-down tactical dash-combat prototype." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
