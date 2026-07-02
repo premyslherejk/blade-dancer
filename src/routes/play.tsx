@@ -1395,8 +1395,75 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
     ctx.closePath(); ctx.fill();
   }
 
-  // hp pips for multi-hp
-  if (e.hp > 1 && e.type !== "shielder") {
+  if (e.type === "boss") {
+    // giant blade on back, spikes crown
+    ctx.save();
+    ctx.rotate(e.facing);
+    // horns / crown
+    ctx.fillStyle = e.phase === 1 ? "oklch(0.65 0.24 30)" : "oklch(0.7 0.05 260)";
+    for (let i = -2; i <= 2; i++) {
+      const ang = (i / 5) * Math.PI * 0.9 - Math.PI;
+      const hx = Math.cos(ang) * r;
+      const hy = Math.sin(ang) * r;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.lineTo(hx + Math.cos(ang) * 10, hy + Math.sin(ang) * 10);
+      ctx.lineTo(hx + Math.cos(ang + 0.15) * 4, hy + Math.sin(ang + 0.15) * 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // giant blade in front
+    ctx.translate(r + 4, 0);
+    ctx.fillStyle = "oklch(0.3 0.05 240)";
+    ctx.fillRect(-4, -3, 8, 6);
+    const bladeGrad = ctx.createLinearGradient(0, -6, 32, 0);
+    bladeGrad.addColorStop(0, "oklch(0.95 0.05 210)");
+    bladeGrad.addColorStop(1, "oklch(0.55 0.12 220)");
+    ctx.fillStyle = bladeGrad;
+    ctx.beginPath();
+    ctx.moveTo(4, -5);
+    ctx.lineTo(34, -2);
+    ctx.lineTo(38, 0);
+    ctx.lineTo(34, 2);
+    ctx.lineTo(4, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "oklch(0.2 0.05 240)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // rune ring around boss
+    ctx.strokeStyle = e.phase === 1 ? "oklch(0.75 0.28 25 / 0.45)" : "oklch(0.85 0.18 60 / 0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.arc(0, 0, r + 6, (time * 0.001) % (Math.PI * 2), (time * 0.001) % (Math.PI * 2) + Math.PI * 1.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // HP bar
+    const barW = 60;
+    const pct = Math.max(0, e.hp / e.maxHp);
+    ctx.fillStyle = "oklch(0.15 0.03 265 / 0.85)";
+    ctx.fillRect(-barW / 2 - 1, -r - 14, barW + 2, 6);
+    const hpGrad = ctx.createLinearGradient(-barW / 2, 0, barW / 2, 0);
+    if (e.phase === 1) {
+      hpGrad.addColorStop(0, "oklch(0.75 0.28 25)");
+      hpGrad.addColorStop(1, "oklch(0.65 0.24 15)");
+    } else {
+      hpGrad.addColorStop(0, "oklch(0.88 0.12 210)");
+      hpGrad.addColorStop(1, "oklch(0.72 0.22 35)");
+    }
+    ctx.fillStyle = hpGrad;
+    ctx.fillRect(-barW / 2, -r - 13, barW * pct, 4);
+    ctx.strokeStyle = "oklch(0.5 0.05 260 / 0.6)";
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(-barW / 2 - 1, -r - 14, barW + 2, 6);
+  }
+
+  // hp pips for multi-hp (skip boss — has bar)
+  if (e.hp > 1 && e.type !== "shielder" && e.type !== "boss") {
     ctx.fillStyle = "oklch(0.9 0.02 260 / 0.85)";
     for (let i = 0; i < e.hp; i++) {
       ctx.beginPath();
