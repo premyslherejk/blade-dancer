@@ -547,7 +547,8 @@ function mkEnemy(id: number, x: number, y: number, type: EnemyType): Enemy {
     hitFlash: 0,
     type,
     facing: Math.PI / 2,
-    shootCd: type === "archer" ? 1500 + Math.random() * 1000 : 0,
+    shootCd: type === "archer" ? 1200 + Math.random() * 800 : 0,
+    fuse: 0,
   };
 }
 
