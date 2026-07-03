@@ -1037,10 +1037,44 @@ function step(s: GameState, dtMsReal: number) {
     p.life -= dtMsReal;
     p.pos.x += p.vel.x * dtReal;
     p.pos.y += p.vel.y * dtReal;
-    p.vel.x *= 0.94;
-    p.vel.y *= 0.94;
+    if (p.kind === "ember") {
+      p.vel.y -= 8 * dtReal; // embers drift up
+      p.vel.x *= 0.995;
+    } else if (p.kind === "dust") {
+      p.vel.x *= 0.99;
+      p.vel.y *= 0.99;
+    } else {
+      p.vel.x *= 0.94;
+      p.vel.y *= 0.94;
+    }
   }
   s.particles = s.particles.filter((p) => p.life > 0);
+
+  // Ambient atmosphere — embers and dust drifting through the arena
+  if (Math.random() < 0.55) {
+    s.particles.push({
+      pos: { x: Math.random() * ARENA_W, y: ARENA_H - 20 + Math.random() * 40 },
+      vel: { x: (Math.random() - 0.5) * 12, y: -20 - Math.random() * 30 },
+      life: 2200 + Math.random() * 1200,
+      max: 2600,
+      color: Math.random() > 0.4 ? "oklch(0.85 0.22 55)" : "oklch(0.92 0.18 30)",
+      size: 0.9 + Math.random() * 1.3,
+      glow: 10,
+      kind: "ember",
+    });
+  }
+  if (Math.random() < 0.35) {
+    s.particles.push({
+      pos: { x: Math.random() * ARENA_W, y: Math.random() * ARENA_H },
+      vel: { x: (Math.random() - 0.5) * 8, y: (Math.random() - 0.5) * 6 },
+      life: 1800,
+      max: 1800,
+      color: "oklch(0.75 0.05 240 / 0.6)",
+      size: 0.6 + Math.random() * 0.8,
+      glow: 4,
+      kind: "dust",
+    });
+  }
 
   for (const ex of s.explosions) ex.life -= dtMsReal;
   s.explosions = s.explosions.filter((ex) => ex.life > 0);
