@@ -406,7 +406,7 @@ function PlayPage() {
       const rect = canvas.getBoundingClientRect();
       const scaleX = ARENA_W / rect.width;
       const scaleY = ARENA_H / rect.height;
-      return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+      return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY + state.cameraY };
     };
     const down = (e: PointerEvent) => {
       if (paused || victory || defeat || showTutorial) return;
