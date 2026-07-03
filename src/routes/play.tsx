@@ -1327,54 +1327,82 @@ function drawFloorProps(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 }
 
-function drawWalls(ctx: CanvasRenderingContext2D, s: GameState) {
-  for (const w of s.walls) {
-    ctx.fillStyle = "oklch(0 0 0 / 0.45)";
-    ctx.fillRect(w.x + 3, w.y + 5, w.w, w.h);
+function drawWall(ctx: CanvasRenderingContext2D, w: { x: number; y: number; w: number; h: number }) {
+  const H = 22; // extrusion height (fake 3D)
+  // Ground shadow projected south-east
+  ctx.fillStyle = "oklch(0 0 0 / 0.55)";
+  ctx.beginPath();
+  ctx.moveTo(w.x + 6, w.y + w.h);
+  ctx.lineTo(w.x + w.w + 10, w.y + w.h);
+  ctx.lineTo(w.x + w.w + 14, w.y + w.h + 12);
+  ctx.lineTo(w.x + 10, w.y + w.h + 12);
+  ctx.closePath();
+  ctx.fill();
 
-    const g = ctx.createLinearGradient(0, w.y, 0, w.y + w.h);
-    g.addColorStop(0, "oklch(0.4 0.03 262)");
-    g.addColorStop(1, "oklch(0.2 0.03 262)");
-    ctx.fillStyle = g;
-    ctx.fillRect(w.x, w.y, w.w, w.h);
+  // Front (south) face — visible extrusion below top face
+  const front = ctx.createLinearGradient(0, w.y + w.h, 0, w.y + w.h + H);
+  front.addColorStop(0, "oklch(0.28 0.03 262)");
+  front.addColorStop(1, "oklch(0.12 0.02 262)");
+  ctx.fillStyle = front;
+  ctx.beginPath();
+  ctx.moveTo(w.x, w.y + w.h);
+  ctx.lineTo(w.x + w.w, w.y + w.h);
+  ctx.lineTo(w.x + w.w + 3, w.y + w.h + H);
+  ctx.lineTo(w.x - 3, w.y + w.h + H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "oklch(0.04 0.02 262)"; ctx.lineWidth = 1; ctx.stroke();
+  // vertical mortar hints on front face
+  ctx.strokeStyle = "oklch(0.06 0.01 262 / 0.7)"; ctx.lineWidth = 0.8;
+  for (let vx = w.x + 18; vx < w.x + w.w; vx += 24) {
+    ctx.beginPath();
+    ctx.moveTo(vx, w.y + w.h);
+    ctx.lineTo(vx + 1, w.y + w.h + H);
+    ctx.stroke();
+  }
 
-    ctx.strokeStyle = "oklch(0.1 0.02 262 / 0.85)";
-    ctx.lineWidth = 1;
-    const brickH = 12;
-    const brickW = 22;
-    for (let y = w.y + brickH; y < w.y + w.h; y += brickH) {
+  // Top face (raised)
+  const top = ctx.createLinearGradient(0, w.y, 0, w.y + w.h);
+  top.addColorStop(0, "oklch(0.62 0.03 262)");
+  top.addColorStop(1, "oklch(0.38 0.03 262)");
+  ctx.fillStyle = top;
+  ctx.fillRect(w.x, w.y, w.w, w.h);
+
+  // Brick pattern on top face
+  ctx.strokeStyle = "oklch(0.1 0.02 262 / 0.75)"; ctx.lineWidth = 1;
+  const brickH = 14, brickW = 26;
+  for (let y = w.y + brickH; y < w.y + w.h; y += brickH) {
+    ctx.beginPath();
+    ctx.moveTo(w.x, y + 0.5);
+    ctx.lineTo(w.x + w.w, y + 0.5);
+    ctx.stroke();
+  }
+  for (let y = w.y; y < w.y + w.h; y += brickH) {
+    const off = Math.floor((y - w.y) / brickH) % 2 === 0 ? 0 : brickW / 2;
+    for (let x = w.x + off + brickW; x < w.x + w.w; x += brickW) {
       ctx.beginPath();
-      ctx.moveTo(w.x, y);
-      ctx.lineTo(w.x + w.w, y);
+      ctx.moveTo(x + 0.5, y);
+      ctx.lineTo(x + 0.5, y + brickH);
       ctx.stroke();
     }
-    for (let y = w.y; y < w.y + w.h; y += brickH) {
-      const off = Math.floor((y - w.y) / brickH) % 2 === 0 ? 0 : brickW / 2;
-      for (let x = w.x + off; x < w.x + w.w; x += brickW) {
-        if (x <= w.x || x >= w.x + w.w) continue;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y + brickH);
-        ctx.stroke();
-      }
-    }
-
-    // top highlight
-    ctx.fillStyle = "oklch(0.55 0.04 262 / 0.85)";
-    ctx.fillRect(w.x, w.y, w.w, 2);
-    // moss dribble on top of horizontal walls
-    if (w.w > w.h && w.w >= 60) {
-      ctx.fillStyle = "oklch(0.45 0.15 140 / 0.55)";
-      for (let mx = w.x + 6; mx < w.x + w.w - 6; mx += 14) {
-        ctx.beginPath();
-        ctx.arc(mx, w.y + 1, 2.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-    ctx.strokeStyle = "oklch(0.06 0.02 262)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(w.x + 0.5, w.y + 0.5, w.w - 1, w.h - 1);
   }
+  // top-face bevel: bright north edge, dark south edge
+  ctx.fillStyle = "oklch(0.78 0.03 262 / 0.9)";
+  ctx.fillRect(w.x, w.y, w.w, 2);
+  ctx.fillStyle = "oklch(0.08 0.02 262 / 0.55)";
+  ctx.fillRect(w.x, w.y + w.h - 2, w.w, 2);
+
+  // moss dribble hanging off top edge (fake 3D — grows over the lip)
+  if (w.w > w.h && w.w >= 60) {
+    ctx.fillStyle = "oklch(0.5 0.16 140 / 0.7)";
+    for (let mx = w.x + 8; mx < w.x + w.w - 8; mx += 18) {
+      ctx.beginPath();
+      ctx.ellipse(mx, w.y + w.h + 1, 3, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.strokeStyle = "oklch(0.05 0.02 262)"; ctx.lineWidth = 1;
+  ctx.strokeRect(w.x + 0.5, w.y + 0.5, w.w - 1, w.h - 1);
 }
 
 function drawTorches(ctx: CanvasRenderingContext2D, s: GameState) {
