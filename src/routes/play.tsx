@@ -70,6 +70,7 @@ type LevelDef = {
   barrels: Vec[];
   spikes: Vec[];
   intro?: string;
+  levelH?: number; // custom vertical length (defaults to ARENA_H)
 };
 
 const OUTER: Wall[] = [
@@ -78,6 +79,14 @@ const OUTER: Wall[] = [
   { x: 0, y: 0, w: 20, h: ARENA_H },
   { x: ARENA_W - 20, y: 0, w: 20, h: ARENA_H },
 ];
+
+const outerFor = (h: number): Wall[] => [
+  { x: 0, y: 0, w: ARENA_W, h: 20 },
+  { x: 0, y: h - 20, w: ARENA_W, h: 20 },
+  { x: 0, y: 0, w: 20, h },
+  { x: ARENA_W - 20, y: 0, w: 20, h },
+];
+
 
 const LEVELS: LevelDef[] = [
   {
