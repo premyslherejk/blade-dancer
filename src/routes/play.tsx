@@ -2341,15 +2341,26 @@ function drawSlashes(ctx: CanvasRenderingContext2D, s: GameState) {
 }
 
 function drawParticles(ctx: CanvasRenderingContext2D, s: GameState) {
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
   for (const p of s.particles) {
-    const a = p.life / p.max;
+    const a = Math.max(0, Math.min(1, p.life / p.max));
+    const glow = p.glow ?? 8;
     ctx.globalAlpha = a;
+    if (glow > 0) {
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = glow;
+    } else {
+      ctx.shadowBlur = 0;
+    }
     ctx.fillStyle = p.color;
     ctx.beginPath();
     ctx.arc(p.pos.x, p.pos.y, p.size, 0, Math.PI * 2);
     ctx.fill();
   }
+  ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 function drawExplosions(ctx: CanvasRenderingContext2D, s: GameState) {
