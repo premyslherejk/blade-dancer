@@ -1065,6 +1065,16 @@ function step(s: GameState, dtMsReal: number) {
   s.shake *= Math.pow(0.001, dtReal);
   if (s.shake < 0.05) s.shake = 0;
 
+  // Camera — smoothly follow player (real time so slow-mo doesn't stutter it)
+  {
+    const maxCam = Math.max(0, s.levelH - ARENA_H);
+    const target = Math.max(0, Math.min(maxCam, s.player.pos.y - ARENA_H * 0.55));
+    // exponential smoothing; ~250ms half-life
+    const lerp = 1 - Math.pow(0.001, dtReal * 1.6);
+    s.cameraY += (target - s.cameraY) * lerp;
+  }
+
+
   if (s.player.invuln > 0) s.player.invuln -= dtMsReal;
 
   // Mana regen (real time, always ticks)
