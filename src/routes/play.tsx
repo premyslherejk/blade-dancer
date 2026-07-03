@@ -1010,6 +1010,9 @@ function createLevelState(idx: number, carryHp: number, carryGold: number, carry
     props,
     torches,
     floorSeed: seed,
+    levelH,
+    cameraY: Math.max(0, Math.min(levelH - ARENA_H, def.playerStart.y - ARENA_H * 0.55)),
+
   };
 }
 
