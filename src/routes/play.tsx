@@ -1831,25 +1831,38 @@ function drawBombGoblin(ctx: CanvasRenderingContext2D, e: Enemy, time: number, f
   ctx.fillStyle = flash > 0 ? "oklch(0.98 0.05 40)" : (armed ? "oklch(0.65 0.24 25)" : "oklch(0.5 0.15 55)");
   ctx.beginPath(); ctx.ellipse(0, 2, 7, 8, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = "oklch(0.15 0.06 40)"; ctx.lineWidth = 1; ctx.stroke();
-  // bomb
+  // bomb — oversized, held above head so silhouette reads "bomber" instantly
   ctx.save();
-  ctx.translate(0, -5);
-  ctx.fillStyle = "oklch(0.13 0.02 260)";
-  ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.42 0.02 260)"; ctx.lineWidth = 0.6; ctx.stroke();
-  ctx.fillStyle = "oklch(0.42 0.03 260)";
-  ctx.beginPath(); ctx.arc(-1.5, -1.5, 1.4, 0, Math.PI * 2); ctx.fill();
-  // fuse
+  ctx.translate(0, -11);
+  // bomb shadow on body
+  ctx.fillStyle = "oklch(0 0 0 / 0.35)";
+  ctx.beginPath(); ctx.ellipse(1.5, 8, 8, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+  // main sphere
+  const bombGrd = ctx.createRadialGradient(-3, -3, 1, 0, 0, 9);
+  bombGrd.addColorStop(0, "oklch(0.32 0.02 260)");
+  bombGrd.addColorStop(1, "oklch(0.08 0.02 260)");
+  ctx.fillStyle = bombGrd;
+  ctx.beginPath(); ctx.arc(0, 0, 8.5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = armed ? "oklch(0.85 0.28 25 / 0.9)" : "oklch(0.55 0.02 260)";
+  ctx.lineWidth = 1.4; ctx.stroke();
+  // hilight
+  ctx.fillStyle = "oklch(0.6 0.02 260 / 0.7)";
+  ctx.beginPath(); ctx.arc(-3, -3, 2, 0, Math.PI * 2); ctx.fill();
+  // fuse cap
+  ctx.fillStyle = "oklch(0.4 0.03 260)";
+  ctx.fillRect(-1.6, -10, 3.2, 2.4);
+  // fuse rope
   const rate = armed ? 0.05 : 0.02;
   const pulse = 0.5 + Math.sin(time * rate) * 0.5;
-  const col = armed ? "oklch(0.75 0.28 25)" : "oklch(0.95 0.2 80)";
-  ctx.strokeStyle = "oklch(0.4 0.05 40)"; ctx.lineWidth = 0.9;
+  const col = armed ? "oklch(0.78 0.28 25)" : "oklch(0.95 0.2 80)";
+  ctx.strokeStyle = "oklch(0.42 0.05 40)"; ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.moveTo(0, -5); ctx.quadraticCurveTo(3, -8, 2, -10); ctx.stroke();
-  ctx.shadowColor = col; ctx.shadowBlur = 10 + pulse * 8;
+  ctx.moveTo(0, -10); ctx.quadraticCurveTo(5, -14, 3, -17); ctx.stroke();
+  // spark
+  ctx.shadowColor = col; ctx.shadowBlur = 14 + pulse * 10;
   ctx.fillStyle = col;
   ctx.beginPath();
-  ctx.arc(2, -10, 1.7 + pulse * (armed ? 1.6 : 0.7), 0, Math.PI * 2);
+  ctx.arc(3, -17, 2.2 + pulse * (armed ? 1.8 : 0.9), 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.restore();
