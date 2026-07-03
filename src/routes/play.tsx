@@ -442,16 +442,36 @@ function PlayPage() {
           style={{ display: "block" }}
         />
 
-        {/* HUD */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-4 flex items-start justify-between pointer-events-none">
-          <div className="flex items-center gap-2 pointer-events-auto">
+        {/* HUD — top */}
+        <div className="absolute top-0 left-0 right-0 z-10 px-3 pt-3 flex items-start justify-between pointer-events-none">
+          <div className="flex flex-col gap-1.5 pointer-events-auto">
             <div
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border"
               style={{ background: "oklch(0.15 0.03 265 / 0.75)", borderColor: "var(--border)", backdropFilter: "blur(8px)" }}
             >
-              {Array.from({ length: 3 }).map((_, i) => (
+              {Array.from({ length: MAX_HP }).map((_, i) => (
                 <HeartIcon key={i} filled={i < hp} />
               ))}
+            </div>
+            {/* Mana bar */}
+            <div
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border"
+              style={{ background: "oklch(0.15 0.03 265 / 0.75)", borderColor: "var(--border)", backdropFilter: "blur(8px)" }}
+            >
+              <ManaDropIcon />
+              <div className="relative w-24 h-2 rounded-full overflow-hidden" style={{ background: "oklch(0.22 0.05 260 / 0.9)", boxShadow: "inset 0 0 4px oklch(0 0 0 / 0.5)" }}>
+                <div
+                  className="absolute inset-y-0 left-0 transition-[width] duration-150"
+                  style={{
+                    width: `${(mana / MAX_MANA) * 100}%`,
+                    background: "linear-gradient(90deg, oklch(0.55 0.22 260), oklch(0.82 0.19 230))",
+                    boxShadow: "0 0 8px oklch(0.75 0.22 250 / 0.8)",
+                  }}
+                />
+              </div>
+              <span className="font-display text-[0.65rem] tracking-widest tabular-nums" style={{ color: "oklch(0.85 0.14 240)" }}>
+                {Math.round(mana)}
+              </span>
             </div>
           </div>
 
@@ -489,14 +509,38 @@ function PlayPage() {
           </div>
         </div>
 
-        {/* Tactical hint */}
+        {/* Bottom action bar — consumables (left) + skills (right) */}
         {!showTutorial && !victory && !defeat && !paused && (
-          <div className="absolute bottom-6 left-0 right-0 z-10 text-center pointer-events-none">
-            <div
-              className="inline-block px-4 py-2 rounded-full text-[0.65rem] tracking-[0.4em] uppercase"
-              style={{ background: "oklch(0.15 0.03 265 / 0.6)", color: "var(--muted-foreground)", backdropFilter: "blur(6px)", border: "1px solid var(--border)" }}
-            >
-              Drag to aim &nbsp;•&nbsp; Release to dash
+          <div className="absolute bottom-0 left-0 right-0 z-10 px-3 pb-3 flex items-end justify-between pointer-events-none">
+            {/* Consumables — bottom left */}
+            <div className="flex items-end gap-2 pointer-events-auto">
+              <PotionSlot
+                kind="hp"
+                count={potions.hp}
+                disabled={potions.hp <= 0 || hp >= MAX_HP}
+                onUse={() => usePotion("hp")}
+              />
+              <PotionSlot
+                kind="mana"
+                count={potions.mana}
+                disabled={potions.mana <= 0 || mana >= MAX_MANA}
+                onUse={() => usePotion("mana")}
+              />
+            </div>
+
+            {/* Skills — bottom right */}
+            <div className="flex items-end gap-2 pointer-events-auto">
+              {(["void", "freeze", "storm"] as SkillId[]).map((id) => (
+                <SkillButton
+                  key={id}
+                  id={id}
+                  cd={skillCds[id]}
+                  maxCd={SKILL_DEFS[id].maxCd}
+                  cost={SKILL_DEFS[id].cost}
+                  mana={mana}
+                  onCast={() => castSkill(id)}
+                />
+              ))}
             </div>
           </div>
         )}
