@@ -900,7 +900,10 @@ type GameState = {
   props: Prop[];
   torches: Torch[];
   floorSeed: number;
+  levelH: number;
+  cameraY: number;
 };
+
 
 function createLevelState(idx: number, carryHp: number, carryGold: number, carryMana: number, carryPotions: { hp: number; mana: number }): GameState {
   const def = LEVELS[idx];
