@@ -280,7 +280,7 @@ function PlayPage() {
     resize();
     window.addEventListener("resize", resize);
 
-    const state: GameState = createLevelState(levelIdx, carryHp, carryGold);
+    const state: GameState = createLevelState(levelIdx, carryHp, carryGold, carryMana, carryPotions);
     stateRef.current = state;
 
     let raf = 0;
@@ -292,7 +292,10 @@ function PlayPage() {
       if (!frozen) {
         step(state, dtMs);
         setHp(state.player.hp);
+        setMana(Math.round(state.player.mana));
         setGold(state.gold);
+        setPotions({ hp: state.potions.hp, mana: state.potions.mana });
+        setSkillCds({ void: state.skills.void.cd, freeze: state.skills.freeze.cd, storm: state.skills.storm.cd });
         if (state.player.hp <= 0 && !state.defeat) {
           state.defeat = true;
           setDefeat(true);
