@@ -1251,6 +1251,85 @@ function explodeAt(s: GameState, at: Vec, radius: number, damagePlayer: boolean)
   }
 }
 
+/* ================= SKILLS ================= */
+
+function spawnHealVfx(s: GameState, at: Vec, kind: "hp" | "mana") {
+  const col = kind === "hp" ? "oklch(0.75 0.22 20)" : "oklch(0.78 0.19 250)";
+  for (let i = 0; i < 22; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 40 + Math.random() * 90;
+    s.particles.push({
+      pos: { x: at.x, y: at.y + 10 },
+      vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp - 80 },
+      life: 700, max: 700, color: col, size: 2 + Math.random() * 2, glow: 14,
+    });
+  }
+}
+
+function activateSkill(s: GameState, id: SkillId) {
+  const p = s.player.pos;
+  if (id === "void") {
+    // Void Slash — 110px damaging burst around player, ignores shielder shield.
+    const R = 110;
+    s.explosions.push({ pos: { ...p }, life: 380, max: 380, radius: R });
+    s.shake = Math.max(s.shake, 14);
+    for (let i = 0; i < 60; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 180 + Math.random() * 340;
+      s.particles.push({
+        pos: { ...p }, vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
+        life: 550, max: 550,
+        color: Math.random() > 0.5 ? "oklch(0.75 0.24 300)" : "oklch(0.92 0.16 280)",
+        size: 2 + Math.random() * 3, glow: 12,
+      });
+    }
+    for (const e of s.enemies) {
+      if (!e.alive) continue;
+      if (dist(e.pos, p) < R) {
+        e.hp -= 2;
+        e.hitFlash = 240;
+        spawnHitBurst(s, e.pos);
+        if (e.hp <= 0) {
+          e.alive = false;
+          s.gold += goldFor(e.type);
+          spawnDeathBurst(s, e.pos);
+        }
+      }
+    }
+  } else if (id === "freeze") {
+    // Chrono Freeze — stops all enemies (boss only 40%) for 2500ms
+    s.freezePulse = 600;
+    s.shake = Math.max(s.shake, 6);
+    for (const e of s.enemies) {
+      if (!e.alive) continue;
+      e.frozen = Math.max(e.frozen, e.type === "boss" ? 1000 : 2500);
+    }
+    for (let i = 0; i < 80; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 40 + Math.random() * 260;
+      s.particles.push({
+        pos: { x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r },
+        vel: { x: 0, y: -20 - Math.random() * 30 },
+        life: 900, max: 900,
+        color: "oklch(0.9 0.13 220)", size: 1 + Math.random() * 2, glow: 10,
+      });
+    }
+  } else if (id === "storm") {
+    // Blade Storm — 8 spinning blades fly outward, pierce walls, damage enemies.
+    const count = 8;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + Math.random() * 0.05;
+      const sp = 380;
+      s.projectiles.push({
+        pos: { ...p },
+        vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
+        life: 1600, radius: 10, friendly: true, damage: 2, rot: a,
+      });
+    }
+    s.shake = Math.max(s.shake, 8);
+  }
+}
+
 /* ================= RENDER ================= */
 
 function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
