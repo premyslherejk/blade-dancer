@@ -1455,13 +1455,20 @@ function drawBarrels(ctx: CanvasRenderingContext2D, s: GameState) {
     if (!b.alive) continue;
     ctx.save();
     ctx.translate(b.pos.x, b.pos.y);
-    ctx.fillStyle = "oklch(0 0 0 / 0.5)";
+    // strong contact shadow
+    ctx.fillStyle = "oklch(0 0 0 / 0.65)";
     ctx.beginPath();
-    ctx.ellipse(3, b.radius, b.radius, b.radius * 0.42, 0, 0, Math.PI * 2);
+    ctx.ellipse(3, b.radius, b.radius + 2, (b.radius + 2) * 0.45, 0, 0, Math.PI * 2);
     ctx.fill();
+    // orange spotlight rim under barrel — pops from floor
+    const rim = ctx.createRadialGradient(0, 0, b.radius, 0, 0, b.radius + 10);
+    rim.addColorStop(0, "oklch(0.75 0.2 45 / 0.35)");
+    rim.addColorStop(1, "transparent");
+    ctx.fillStyle = rim;
+    ctx.beginPath(); ctx.arc(0, 0, b.radius + 10, 0, Math.PI * 2); ctx.fill();
     const bg = ctx.createRadialGradient(-4, -4, 3, 0, 0, b.radius);
-    bg.addColorStop(0, "oklch(0.58 0.14 40)");
-    bg.addColorStop(1, "oklch(0.26 0.1 30)");
+    bg.addColorStop(0, "oklch(0.68 0.18 50)");
+    bg.addColorStop(1, "oklch(0.28 0.12 30)");
     ctx.fillStyle = bg;
     ctx.beginPath();
     ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
