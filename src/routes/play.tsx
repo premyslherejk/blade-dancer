@@ -604,7 +604,7 @@ type GameState = {
   floorSeed: number;
 };
 
-function createLevelState(idx: number, carryHp: number, carryGold: number): GameState {
+function createLevelState(idx: number, carryHp: number, carryGold: number, carryMana: number, carryPotions: { hp: number; mana: number }): GameState {
   const def = LEVELS[idx];
   const enemies: Enemy[] = def.enemies.map((e, i) => mkEnemy(i + 1, e.x, e.y, e.type));
 
