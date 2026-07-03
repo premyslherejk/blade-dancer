@@ -360,22 +360,24 @@ function PlayPage() {
       canvas.removeEventListener("pointerup", up);
       canvas.removeEventListener("pointercancel", up);
     };
-  }, [paused, victory, defeat, levelIdx, showTutorial, carryHp, carryGold]);
+  }, [paused, victory, defeat, levelIdx, showTutorial, carryHp, carryGold, carryMana, carryPotions]);
 
   const restartLevel = () => {
     setDefeat(false);
     setVictory(false);
     setPaused(false);
-    // rebuild via effect dependency change
     setCarryHp(3);
+    setCarryMana(MAX_MANA);
+    setCarryPotions({ hp: 2, mana: 2 });
     setCarryGold(gold);
   };
 
   const nextLevel = () => {
     const hasNext = levelIdx < LEVELS.length - 1;
     if (!hasNext) {
-      // full clear — reset to level 0
       setCarryHp(3);
+      setCarryMana(MAX_MANA);
+      setCarryPotions({ hp: 2, mana: 2 });
       setCarryGold(0);
       setLevelIdx(0);
       setVictory(false);
@@ -385,6 +387,9 @@ function PlayPage() {
       return;
     }
     setCarryHp(Math.max(1, hp));
+    setCarryMana(mana);
+    // grant +1 of each potion between levels
+    setCarryPotions({ hp: Math.min(3, potions.hp + 1), mana: Math.min(3, potions.mana + 1) });
     setCarryGold(gold);
     const next = levelIdx + 1;
     setLevelIdx(next);
@@ -392,6 +397,34 @@ function PlayPage() {
     setDefeat(false);
     setPaused(false);
     if (LEVELS[next]?.intro) setShowTutorial(true);
+  };
+
+  const usePotion = (kind: "hp" | "mana") => {
+    const st = stateRef.current;
+    if (!st || paused || victory || defeat || showTutorial) return;
+    if (st.potions[kind] <= 0) return;
+    if (kind === "hp") {
+      if (st.player.hp >= MAX_HP) return;
+      st.potions.hp -= 1;
+      st.player.hp = Math.min(MAX_HP, st.player.hp + 1);
+      spawnHealVfx(st, st.player.pos, "hp");
+    } else {
+      if (st.player.mana >= MAX_MANA) return;
+      st.potions.mana -= 1;
+      st.player.mana = Math.min(MAX_MANA, st.player.mana + 50);
+      spawnHealVfx(st, st.player.pos, "mana");
+    }
+  };
+
+  const castSkill = (id: SkillId) => {
+    const st = stateRef.current;
+    if (!st || paused || victory || defeat || showTutorial) return;
+    const sk = st.skills[id];
+    if (sk.cd > 0) return;
+    if (st.player.mana < sk.cost) return;
+    st.player.mana -= sk.cost;
+    sk.cd = sk.maxCd;
+    activateSkill(st, id);
   };
 
   const current = LEVELS[levelIdx];
