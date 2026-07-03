@@ -247,7 +247,10 @@ function PlayPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState | null>(null);
   const [hp, setHp] = useState(3);
+  const [mana, setMana] = useState(MAX_MANA);
   const [gold, setGold] = useState(0);
+  const [potions, setPotions] = useState({ hp: 2, mana: 2 });
+  const [skillCds, setSkillCds] = useState<Record<SkillId, number>>({ void: 0, freeze: 0, storm: 0 });
   const [paused, setPaused] = useState(false);
   const [victory, setVictory] = useState(false);
   const [defeat, setDefeat] = useState(false);
@@ -255,6 +258,8 @@ function PlayPage() {
   const [showTutorial, setShowTutorial] = useState(true);
   const [carryGold, setCarryGold] = useState(0);
   const [carryHp, setCarryHp] = useState(3);
+  const [carryMana, setCarryMana] = useState(MAX_MANA);
+  const [carryPotions, setCarryPotions] = useState({ hp: 2, mana: 2 });
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
