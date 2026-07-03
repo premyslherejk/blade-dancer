@@ -1133,13 +1133,11 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
   drawFloor(ctx, s);
   drawFloorProps(ctx, s);
   drawSpikes(ctx, s);
-  drawBarrels(ctx, s);
-  drawWalls(ctx, s);
   drawTorches(ctx, s);
 
   // Player warm halo
   const grd = ctx.createRadialGradient(s.player.pos.x, s.player.pos.y, 22, s.player.pos.x, s.player.pos.y, 240);
-  grd.addColorStop(0, "oklch(0.85 0.15 60 / 0.16)");
+  grd.addColorStop(0, "oklch(0.85 0.15 60 / 0.18)");
   grd.addColorStop(1, "transparent");
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
@@ -1147,13 +1145,26 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
   drawTrail(ctx, s);
   drawSlamTelegraphs(ctx, s);
 
+  // Y-sorted pass: barrels + enemies + walls + player draw back-to-front
+  // so overlapping stacked units get correct fake-3D occlusion.
+  type SortItem = { y: number; draw: () => void };
+  const items: SortItem[] = [];
+  for (const b of s.barrels) {
+    if (!b.alive) continue;
+    items.push({ y: b.pos.y + b.radius, draw: () => drawBarrel(ctx, b, s.time) });
+  }
+  for (const w of s.walls) {
+    items.push({ y: w.y + w.h, draw: () => drawWall(ctx, w) });
+  }
   for (const e of s.enemies) {
     if (!e.alive) continue;
-    drawEnemy(ctx, e, s.time);
+    items.push({ y: e.pos.y + enemyRadius(e.type), draw: () => drawEnemy(ctx, e, s.time) });
   }
+  items.push({ y: s.player.pos.y + PLAYER_R, draw: () => drawPlayer(ctx, s) });
+  items.sort((a, b) => a.y - b.y);
+  for (const it of items) it.draw();
 
   drawProjectiles(ctx, s);
-  drawPlayer(ctx, s);
   if (s.aiming) drawAim(ctx, s);
   drawSlashes(ctx, s);
   drawParticles(ctx, s);
@@ -1178,37 +1189,52 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
 /* ---------- Environment ---------- */
 
 function drawFloor(ctx: CanvasRenderingContext2D, s: GameState) {
-  // Deep border backdrop
-  ctx.fillStyle = "oklch(0.09 0.02 265)";
+  // Deep pit backdrop
+  ctx.fillStyle = "oklch(0.07 0.02 265)";
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 
-  // Clean stage: soft radial gradient makes center brightest, corners darker
   const cx = ARENA_W / 2;
   const cy = ARENA_H / 2;
-  const bg = ctx.createRadialGradient(cx, cy, 40, cx, cy, Math.max(ARENA_W, ARENA_H) * 0.75);
-  bg.addColorStop(0, "oklch(0.24 0.02 262)");
-  bg.addColorStop(0.65, "oklch(0.18 0.02 262)");
-  bg.addColorStop(1, "oklch(0.1 0.02 262)");
+
+  // Warm overhead spotlight — big center pool of light, dramatic falloff
+  const bg = ctx.createRadialGradient(cx, cy - 40, 20, cx, cy, Math.max(ARENA_W, ARENA_H) * 0.8);
+  bg.addColorStop(0, "oklch(0.34 0.04 70)");
+  bg.addColorStop(0.35, "oklch(0.24 0.03 262)");
+  bg.addColorStop(0.75, "oklch(0.14 0.02 262)");
+  bg.addColorStop(1, "oklch(0.06 0.02 262)");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 
-  // Very subtle large-tile seams (calm, not busy)
-  ctx.strokeStyle = "oklch(0.06 0.01 262 / 0.35)";
+  // Isometric stone tile hint — diamond grid gives a subtle depth read
+  ctx.save();
+  ctx.strokeStyle = "oklch(0.05 0.01 262 / 0.32)";
   ctx.lineWidth = 1;
-  const tile = 110;
+  const tile = 120;
+  ctx.translate(cx, cy);
+  ctx.rotate(Math.PI / 4);
   ctx.beginPath();
-  for (let x = tile; x < ARENA_W; x += tile) {
-    ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, ARENA_H);
-  }
-  for (let y = tile; y < ARENA_H; y += tile) {
-    ctx.moveTo(0, y + 0.5); ctx.lineTo(ARENA_W, y + 0.5);
+  const N = 14;
+  for (let i = -N; i <= N; i++) {
+    ctx.moveTo(i * tile, -N * tile);
+    ctx.lineTo(i * tile, N * tile);
+    ctx.moveTo(-N * tile, i * tile);
+    ctx.lineTo(N * tile, i * tile);
   }
   ctx.stroke();
+  ctx.restore();
 
-  // Vignette — pushes edges darker, focuses attention on gameplay
-  const vg = ctx.createRadialGradient(cx, cy, ARENA_W * 0.35, cx, cy, ARENA_W * 0.85);
+  // faint diagonal light streak — as if a shaft comes from top-left
+  const streak = ctx.createLinearGradient(0, 0, ARENA_W * 0.8, ARENA_H * 0.7);
+  streak.addColorStop(0, "oklch(0.9 0.1 70 / 0.06)");
+  streak.addColorStop(0.5, "transparent");
+  streak.addColorStop(1, "transparent");
+  ctx.fillStyle = streak;
+  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+
+  // Vignette — strong at edges, focuses attention on gameplay
+  const vg = ctx.createRadialGradient(cx, cy, ARENA_W * 0.3, cx, cy, ARENA_W * 0.9);
   vg.addColorStop(0, "transparent");
-  vg.addColorStop(1, "oklch(0.04 0.02 260 / 0.7)");
+  vg.addColorStop(1, "oklch(0.03 0.02 260 / 0.85)");
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 }
@@ -1316,54 +1342,82 @@ function drawFloorProps(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 }
 
-function drawWalls(ctx: CanvasRenderingContext2D, s: GameState) {
-  for (const w of s.walls) {
-    ctx.fillStyle = "oklch(0 0 0 / 0.45)";
-    ctx.fillRect(w.x + 3, w.y + 5, w.w, w.h);
+function drawWall(ctx: CanvasRenderingContext2D, w: { x: number; y: number; w: number; h: number }) {
+  const H = 22; // extrusion height (fake 3D)
+  // Ground shadow projected south-east
+  ctx.fillStyle = "oklch(0 0 0 / 0.55)";
+  ctx.beginPath();
+  ctx.moveTo(w.x + 6, w.y + w.h);
+  ctx.lineTo(w.x + w.w + 10, w.y + w.h);
+  ctx.lineTo(w.x + w.w + 14, w.y + w.h + 12);
+  ctx.lineTo(w.x + 10, w.y + w.h + 12);
+  ctx.closePath();
+  ctx.fill();
 
-    const g = ctx.createLinearGradient(0, w.y, 0, w.y + w.h);
-    g.addColorStop(0, "oklch(0.4 0.03 262)");
-    g.addColorStop(1, "oklch(0.2 0.03 262)");
-    ctx.fillStyle = g;
-    ctx.fillRect(w.x, w.y, w.w, w.h);
+  // Front (south) face — visible extrusion below top face
+  const front = ctx.createLinearGradient(0, w.y + w.h, 0, w.y + w.h + H);
+  front.addColorStop(0, "oklch(0.28 0.03 262)");
+  front.addColorStop(1, "oklch(0.12 0.02 262)");
+  ctx.fillStyle = front;
+  ctx.beginPath();
+  ctx.moveTo(w.x, w.y + w.h);
+  ctx.lineTo(w.x + w.w, w.y + w.h);
+  ctx.lineTo(w.x + w.w + 3, w.y + w.h + H);
+  ctx.lineTo(w.x - 3, w.y + w.h + H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "oklch(0.04 0.02 262)"; ctx.lineWidth = 1; ctx.stroke();
+  // vertical mortar hints on front face
+  ctx.strokeStyle = "oklch(0.06 0.01 262 / 0.7)"; ctx.lineWidth = 0.8;
+  for (let vx = w.x + 18; vx < w.x + w.w; vx += 24) {
+    ctx.beginPath();
+    ctx.moveTo(vx, w.y + w.h);
+    ctx.lineTo(vx + 1, w.y + w.h + H);
+    ctx.stroke();
+  }
 
-    ctx.strokeStyle = "oklch(0.1 0.02 262 / 0.85)";
-    ctx.lineWidth = 1;
-    const brickH = 12;
-    const brickW = 22;
-    for (let y = w.y + brickH; y < w.y + w.h; y += brickH) {
+  // Top face (raised)
+  const top = ctx.createLinearGradient(0, w.y, 0, w.y + w.h);
+  top.addColorStop(0, "oklch(0.62 0.03 262)");
+  top.addColorStop(1, "oklch(0.38 0.03 262)");
+  ctx.fillStyle = top;
+  ctx.fillRect(w.x, w.y, w.w, w.h);
+
+  // Brick pattern on top face
+  ctx.strokeStyle = "oklch(0.1 0.02 262 / 0.75)"; ctx.lineWidth = 1;
+  const brickH = 14, brickW = 26;
+  for (let y = w.y + brickH; y < w.y + w.h; y += brickH) {
+    ctx.beginPath();
+    ctx.moveTo(w.x, y + 0.5);
+    ctx.lineTo(w.x + w.w, y + 0.5);
+    ctx.stroke();
+  }
+  for (let y = w.y; y < w.y + w.h; y += brickH) {
+    const off = Math.floor((y - w.y) / brickH) % 2 === 0 ? 0 : brickW / 2;
+    for (let x = w.x + off + brickW; x < w.x + w.w; x += brickW) {
       ctx.beginPath();
-      ctx.moveTo(w.x, y);
-      ctx.lineTo(w.x + w.w, y);
+      ctx.moveTo(x + 0.5, y);
+      ctx.lineTo(x + 0.5, y + brickH);
       ctx.stroke();
     }
-    for (let y = w.y; y < w.y + w.h; y += brickH) {
-      const off = Math.floor((y - w.y) / brickH) % 2 === 0 ? 0 : brickW / 2;
-      for (let x = w.x + off; x < w.x + w.w; x += brickW) {
-        if (x <= w.x || x >= w.x + w.w) continue;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y + brickH);
-        ctx.stroke();
-      }
-    }
-
-    // top highlight
-    ctx.fillStyle = "oklch(0.55 0.04 262 / 0.85)";
-    ctx.fillRect(w.x, w.y, w.w, 2);
-    // moss dribble on top of horizontal walls
-    if (w.w > w.h && w.w >= 60) {
-      ctx.fillStyle = "oklch(0.45 0.15 140 / 0.55)";
-      for (let mx = w.x + 6; mx < w.x + w.w - 6; mx += 14) {
-        ctx.beginPath();
-        ctx.arc(mx, w.y + 1, 2.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-    ctx.strokeStyle = "oklch(0.06 0.02 262)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(w.x + 0.5, w.y + 0.5, w.w - 1, w.h - 1);
   }
+  // top-face bevel: bright north edge, dark south edge
+  ctx.fillStyle = "oklch(0.78 0.03 262 / 0.9)";
+  ctx.fillRect(w.x, w.y, w.w, 2);
+  ctx.fillStyle = "oklch(0.08 0.02 262 / 0.55)";
+  ctx.fillRect(w.x, w.y + w.h - 2, w.w, 2);
+
+  // moss dribble hanging off top edge (fake 3D — grows over the lip)
+  if (w.w > w.h && w.w >= 60) {
+    ctx.fillStyle = "oklch(0.5 0.16 140 / 0.7)";
+    for (let mx = w.x + 8; mx < w.x + w.w - 8; mx += 18) {
+      ctx.beginPath();
+      ctx.ellipse(mx, w.y + w.h + 1, 3, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.strokeStyle = "oklch(0.05 0.02 262)"; ctx.lineWidth = 1;
+  ctx.strokeRect(w.x + 0.5, w.y + 0.5, w.w - 1, w.h - 1);
 }
 
 function drawTorches(ctx: CanvasRenderingContext2D, s: GameState) {
@@ -1457,56 +1511,76 @@ function drawSpikes(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 }
 
-function drawBarrels(ctx: CanvasRenderingContext2D, s: GameState) {
-  for (const b of s.barrels) {
-    if (!b.alive) continue;
-    ctx.save();
-    ctx.translate(b.pos.x, b.pos.y);
-    // strong contact shadow
-    ctx.fillStyle = "oklch(0 0 0 / 0.65)";
+function drawBarrel(ctx: CanvasRenderingContext2D, b: { pos: { x: number; y: number }; radius: number; alive: boolean }, time: number) {
+  const R = b.radius;
+  const H = 26;
+  ctx.save();
+  ctx.translate(b.pos.x, b.pos.y);
+
+  ctx.fillStyle = "oklch(0 0 0 / 0.6)";
+  ctx.beginPath();
+  ctx.ellipse(4, R + 2, R + 4, (R + 4) * 0.42, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const rim = ctx.createRadialGradient(0, R, R, 0, R, R + 14);
+  rim.addColorStop(0, "oklch(0.75 0.22 45 / 0.4)");
+  rim.addColorStop(1, "transparent");
+  ctx.fillStyle = rim;
+  ctx.beginPath(); ctx.ellipse(0, R, R + 14, (R + 14) * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+
+  const side = ctx.createLinearGradient(-R, 0, R, 0);
+  side.addColorStop(0, "oklch(0.22 0.1 30)");
+  side.addColorStop(0.5, "oklch(0.6 0.19 50)");
+  side.addColorStop(1, "oklch(0.22 0.1 30)");
+  ctx.fillStyle = side;
+  ctx.fillRect(-R, -H + R, R * 2, H);
+  ctx.beginPath();
+  ctx.ellipse(0, R, R, R * 0.42, 0, 0, Math.PI);
+  ctx.fillStyle = "oklch(0.22 0.1 30)";
+  ctx.fill();
+
+  ctx.strokeStyle = "oklch(0.08 0.05 30 / 0.85)"; ctx.lineWidth = 1;
+  for (let i = -2; i <= 2; i++) {
+    const x = i * (R / 3);
     ctx.beginPath();
-    ctx.ellipse(3, b.radius, b.radius + 2, (b.radius + 2) * 0.45, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // orange spotlight rim under barrel — pops from floor
-    const rim = ctx.createRadialGradient(0, 0, b.radius, 0, 0, b.radius + 10);
-    rim.addColorStop(0, "oklch(0.75 0.2 45 / 0.35)");
-    rim.addColorStop(1, "transparent");
-    ctx.fillStyle = rim;
-    ctx.beginPath(); ctx.arc(0, 0, b.radius + 10, 0, Math.PI * 2); ctx.fill();
-    const bg = ctx.createRadialGradient(-4, -4, 3, 0, 0, b.radius);
-    bg.addColorStop(0, "oklch(0.68 0.18 50)");
-    bg.addColorStop(1, "oklch(0.28 0.12 30)");
-    ctx.fillStyle = bg;
-    ctx.beginPath();
-    ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
-    ctx.fill();
-    // staves
-    ctx.strokeStyle = "oklch(0.15 0.05 30 / 0.75)"; ctx.lineWidth = 1;
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * b.radius, Math.sin(a) * b.radius);
-      ctx.lineTo(0, 0);
-      ctx.stroke();
-    }
-    // iron ring
-    ctx.strokeStyle = "oklch(0.4 0.02 260)"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(0, 0, b.radius - 2, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = "oklch(0.7 0.02 260 / 0.6)"; ctx.lineWidth = 0.8;
-    ctx.beginPath(); ctx.arc(0, 0, b.radius - 2, -0.6, 0.2); ctx.stroke();
-    ctx.strokeStyle = "oklch(0.1 0.03 30)"; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(0, 0, b.radius, 0, Math.PI * 2); ctx.stroke();
-    // hazard rune
-    const glow = 0.5 + Math.sin(s.time * 0.008) * 0.5;
-    ctx.shadowColor = "oklch(0.95 0.22 60)"; ctx.shadowBlur = 12;
-    ctx.fillStyle = `oklch(0.95 0.22 70 / ${0.75 + glow * 0.25})`;
-    ctx.beginPath();
-    ctx.moveTo(0, -5); ctx.lineTo(4, 3); ctx.lineTo(-4, 3);
-    ctx.closePath();
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.restore();
+    ctx.moveTo(x, -H + R);
+    ctx.lineTo(x, R - 1);
+    ctx.stroke();
   }
+  for (const hy of [-H + R + 4, 0, R - 6]) {
+    ctx.strokeStyle = "oklch(0.16 0.02 260)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(0, hy, R, R * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = "oklch(0.75 0.02 260 / 0.7)"; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.ellipse(0, hy - 1, R, R * 0.42, 0, -0.5, 0.3); ctx.stroke();
+  }
+  ctx.strokeStyle = "oklch(0.05 0.03 30)"; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-R, -H + R); ctx.lineTo(-R, R - 1);
+  ctx.moveTo(R, -H + R); ctx.lineTo(R, R - 1);
+  ctx.stroke();
+
+  const cap = ctx.createRadialGradient(-R * 0.3, -H + R - 2, 2, 0, -H + R, R);
+  cap.addColorStop(0, "oklch(0.74 0.14 55)");
+  cap.addColorStop(1, "oklch(0.32 0.12 35)");
+  ctx.fillStyle = cap;
+  ctx.beginPath();
+  ctx.ellipse(0, -H + R, R, R * 0.42, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "oklch(0.06 0.05 30)"; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.strokeStyle = "oklch(0.2 0.08 30 / 0.6)"; ctx.lineWidth = 0.6;
+  for (const rr of [R * 0.35, R * 0.65]) {
+    ctx.beginPath(); ctx.ellipse(-1, -H + R, rr, rr * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  const glow = 0.5 + Math.sin(time * 0.008) * 0.5;
+  ctx.shadowColor = "oklch(0.95 0.22 60)"; ctx.shadowBlur = 14;
+  ctx.fillStyle = `oklch(0.95 0.22 70 / ${0.8 + glow * 0.2})`;
+  ctx.beginPath();
+  ctx.moveTo(0, -6); ctx.lineTo(5, 4); ctx.lineTo(-5, 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
 }
 
 function drawTrail(ctx: CanvasRenderingContext2D, s: GameState) {
