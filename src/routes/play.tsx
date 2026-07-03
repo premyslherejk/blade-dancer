@@ -953,9 +953,10 @@ function createLevelState(idx: number, carryHp: number, carryGold: number, carry
   const torches: Torch[] = [];
   for (const w of def.walls) {
     const outer =
-      w.x <= 0 || w.y <= 0 || w.x + w.w >= ARENA_W || w.y + w.h >= ARENA_H;
+      w.x <= 0 || w.y <= 0 || w.x + w.w >= ARENA_W || w.y + w.h >= levelH;
     if (outer) continue;
     const long = Math.max(w.w, w.h);
+
     if (long < 70) continue;
     // Place a torch at midpoint on the "top" edge (facing arena interior toward smaller y for horizontal walls)
     if (w.w >= w.h) {
