@@ -1784,29 +1784,39 @@ function drawKnight(ctx: CanvasRenderingContext2D, e: Enemy, time: number, flash
   ctx.moveTo(-1.2, -10); ctx.lineTo(1.2, -10); ctx.lineTo(0.7, 0); ctx.lineTo(-0.7, 0);
   ctx.closePath(); ctx.fill();
   ctx.restore();
-  // shield in front
+  // shield in front — oversized tower shield, dominant silhouette
   ctx.save();
-  ctx.translate(0, -12);
-  const shieldGrd = ctx.createLinearGradient(-10, 0, 10, 0);
-  shieldGrd.addColorStop(0, flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.7 0.14 240)");
-  shieldGrd.addColorStop(1, flash > 0 ? "oklch(0.85 0.05 210)" : "oklch(0.38 0.1 245)");
+  ctx.translate(0, -15);
+  // shield drop-shadow behind
+  ctx.fillStyle = "oklch(0 0 0 / 0.5)";
+  ctx.beginPath();
+  ctx.moveTo(-14, -6); ctx.lineTo(14, -6); ctx.lineTo(14, 4);
+  ctx.quadraticCurveTo(0, 18, -14, 4);
+  ctx.closePath(); ctx.fill();
+  const shieldGrd = ctx.createLinearGradient(-13, 0, 13, 0);
+  shieldGrd.addColorStop(0, flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.75 0.16 240)");
+  shieldGrd.addColorStop(0.5, flash > 0 ? "oklch(0.95 0.05 210)" : "oklch(0.55 0.14 240)");
+  shieldGrd.addColorStop(1, flash > 0 ? "oklch(0.85 0.05 210)" : "oklch(0.3 0.1 245)");
   ctx.fillStyle = shieldGrd;
   ctx.beginPath();
-  ctx.moveTo(-9, -3); ctx.lineTo(9, -3); ctx.lineTo(9, 2);
-  ctx.quadraticCurveTo(0, 11, -9, 2);
+  ctx.moveTo(-13, -6); ctx.lineTo(13, -6); ctx.lineTo(13, 4);
+  ctx.quadraticCurveTo(0, 17, -13, 4);
   ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = "oklch(0.15 0.04 240)"; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.fillStyle = "oklch(0.9 0.14 80)";
-  for (const rx of [-6, 0, 6]) {
+  ctx.strokeStyle = "oklch(0.06 0.04 240)"; ctx.lineWidth = 2; ctx.stroke();
+  // gold rim studs
+  ctx.fillStyle = "oklch(0.92 0.16 80)";
+  for (const rx of [-9, -3, 3, 9]) {
     ctx.beginPath();
-    ctx.arc(rx, -1, 1, 0, Math.PI * 2);
+    ctx.arc(rx, -4, 1.2, 0, Math.PI * 2);
     ctx.fill();
   }
-  // emblem
-  ctx.fillStyle = "oklch(0.9 0.14 80)";
+  // large gold emblem — clear identity
+  ctx.shadowColor = "oklch(0.9 0.18 70)"; ctx.shadowBlur = 6;
+  ctx.fillStyle = "oklch(0.94 0.18 80)";
   ctx.beginPath();
-  ctx.moveTo(0, -1.5); ctx.lineTo(2.5, 2.5); ctx.lineTo(-2.5, 2.5);
+  ctx.moveTo(0, -3); ctx.lineTo(5, 4); ctx.lineTo(0, 10); ctx.lineTo(-5, 4);
   ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
   ctx.restore();
   // helm
   ctx.fillStyle = flash > 0 ? "oklch(0.98 0.02 260)" : "oklch(0.42 0.04 260)";
