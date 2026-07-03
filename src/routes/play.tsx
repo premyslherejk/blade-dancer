@@ -800,6 +800,14 @@ function step(s: GameState, dtMsReal: number) {
 
   if (s.player.invuln > 0) s.player.invuln -= dtMsReal;
 
+  // Mana regen (real time, always ticks)
+  s.player.mana = Math.min(MAX_MANA, s.player.mana + MANA_REGEN * dtReal);
+  // Skill cooldowns (real time)
+  for (const id of ["void", "freeze", "storm"] as SkillId[]) {
+    if (s.skills[id].cd > 0) s.skills[id].cd = Math.max(0, s.skills[id].cd - dtMsReal);
+  }
+  if (s.freezePulse > 0) s.freezePulse -= dtMsReal;
+
   if (!s.player.dashing) s.player.plantedTimer += dtReal;
   else s.player.plantedTimer = 0;
 
