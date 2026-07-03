@@ -1575,12 +1575,20 @@ function drawProjectiles(ctx: CanvasRenderingContext2D, s: GameState) {
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
   ctx.save();
   ctx.translate(e.pos.x, e.pos.y);
-  const shadowR = e.type === "boss" ? 30 : 15;
-  const shadowH = e.type === "boss" ? 9 : 5;
-  ctx.fillStyle = "oklch(0 0 0 / 0.5)";
+  const shadowR = e.type === "boss" ? 34 : 17;
+  const shadowH = e.type === "boss" ? 10 : 6;
+  // strong contact shadow — separates unit from floor
+  ctx.fillStyle = "oklch(0 0 0 / 0.65)";
   ctx.beginPath();
   ctx.ellipse(2, e.type === "boss" ? 24 : 14, shadowR, shadowH, 0, 0, Math.PI * 2);
   ctx.fill();
+  // subtle bright rim ring on the ground — "spotlight" pop like Brawl Stars
+  const rimR = e.type === "boss" ? 30 : 15;
+  ctx.strokeStyle = e.type === "boss" ? "oklch(0.9 0.22 30 / 0.28)" : "oklch(0.92 0.14 210 / 0.22)";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.ellipse(0, e.type === "boss" ? 22 : 13, rimR, rimR * 0.32, 0, 0, Math.PI * 2);
+  ctx.stroke();
 
   const flash = e.hitFlash > 0 ? Math.min(1, e.hitFlash / 200) : 0;
   switch (e.type) {
