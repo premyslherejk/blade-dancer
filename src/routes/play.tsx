@@ -2170,17 +2170,36 @@ function drawPlayer(ctx: CanvasRenderingContext2D, s: GameState) {
   const p = s.player;
   ctx.save();
   ctx.translate(p.pos.x, p.pos.y);
-  ctx.fillStyle = "oklch(0 0 0 / 0.55)";
+
+  const lift = p.dashing ? 8 : 12;
+
+  // Soft ground shadow
+  const shGrad = ctx.createRadialGradient(2, 16, 2, 2, 16, 20);
+  shGrad.addColorStop(0, "oklch(0 0 0 / 0.7)");
+  shGrad.addColorStop(1, "oklch(0 0 0 / 0)");
+  ctx.fillStyle = shGrad;
   ctx.beginPath();
-  ctx.ellipse(2, 15, 16, 6, 0, 0, Math.PI * 2);
+  ctx.ellipse(2, 16, 18, 7, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  // Projected body silhouette
+  ctx.save();
+  ctx.transform(1, 0, -0.55, 0.32, 0, 0);
+  ctx.fillStyle = "oklch(0 0 0 / 0.3)";
+  ctx.beginPath();
+  ctx.ellipse(0, 22 + lift * 1.2, 13, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Lift character up
+  ctx.translate(0, -lift);
 
   const flicker = p.invuln > 0 && Math.floor(p.invuln / 60) % 2 === 0 ? 0.4 : 1;
   ctx.globalAlpha = flicker;
 
-  const auraR = 26 + Math.sin(s.time * 0.004) * 2;
+  const auraR = 28 + Math.sin(s.time * 0.004) * 2;
   const aura = ctx.createRadialGradient(0, 0, 8, 0, 0, auraR);
-  aura.addColorStop(0, "oklch(0.9 0.15 210 / 0.35)");
+  aura.addColorStop(0, "oklch(0.9 0.15 210 / 0.4)");
   aura.addColorStop(1, "transparent");
   ctx.fillStyle = aura;
   ctx.beginPath();
