@@ -568,6 +568,7 @@ type GameState = {
   player: {
     pos: Vec;
     hp: number;
+    mana: number;
     dashing: boolean;
     dashDir: Vec;
     dashTarget: Vec;
@@ -587,6 +588,9 @@ type GameState = {
   explosions: Explosion[];
   projectiles: Projectile[];
   gold: number;
+  potions: { hp: number; mana: number };
+  skills: Record<SkillId, SkillState>;
+  freezePulse: number; // ms remaining of overall freeze visual pulse
   aiming: boolean;
   aimStart: Vec;
   aimCurrent: Vec;
