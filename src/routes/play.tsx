@@ -647,6 +647,128 @@ function HeartIcon({ filled }: { filled: boolean }) {
   );
 }
 
+function ManaDropIcon() {
+  return (
+    <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
+      <path d="M7 1 C 3 6, 1 9, 1 11.5 A 6 6 0 0 0 13 11.5 C 13 9, 11 6, 7 1 Z"
+        fill="oklch(0.65 0.22 250)" stroke="oklch(0.9 0.15 240)" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function PotionSlot({ kind, count, disabled, onUse }: {
+  kind: "hp" | "mana"; count: number; disabled: boolean; onUse: () => void;
+}) {
+  const isHp = kind === "hp";
+  const liquid = isHp ? "linear-gradient(180deg, oklch(0.75 0.24 25), oklch(0.5 0.24 20))" : "linear-gradient(180deg, oklch(0.78 0.19 250), oklch(0.5 0.22 260))";
+  const glow = isHp ? "oklch(0.7 0.25 25 / 0.55)" : "oklch(0.7 0.22 250 / 0.55)";
+  const rim = isHp ? "oklch(0.85 0.2 25)" : "oklch(0.85 0.18 245)";
+  return (
+    <button
+      onClick={onUse}
+      disabled={disabled}
+      className="relative w-14 h-14 rounded-xl border flex items-end justify-center overflow-hidden transition active:scale-95 disabled:opacity-40"
+      style={{
+        background: "oklch(0.14 0.03 265 / 0.85)",
+        borderColor: disabled ? "var(--border)" : rim,
+        backdropFilter: "blur(8px)",
+        boxShadow: disabled ? "none" : `0 0 14px ${glow}, inset 0 0 12px oklch(0 0 0 / 0.4)`,
+      }}
+      aria-label={isHp ? "Health Potion" : "Mana Potion"}
+    >
+      <div className="relative w-7 h-9 mb-1">
+        <div className="absolute left-1/2 -translate-x-1/2 -top-1 w-3 h-2 rounded-sm" style={{ background: "oklch(0.35 0.05 40)" }} />
+        <div className="absolute inset-x-0 top-1 bottom-0 rounded-b-2xl rounded-t overflow-hidden border" style={{ borderColor: "oklch(0.9 0.05 260 / 0.4)" }}>
+          <div className="absolute inset-0" style={{ background: liquid }} />
+          <div className="absolute inset-x-1 top-1 h-1.5 rounded-full" style={{ background: "oklch(1 0 0 / 0.4)" }} />
+        </div>
+      </div>
+      <div
+        className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full flex items-center justify-center text-[0.6rem] font-bold tabular-nums border"
+        style={{ background: "oklch(0.14 0.03 265)", color: "var(--foreground)", borderColor: rim }}
+      >
+        {count}
+      </div>
+    </button>
+  );
+}
+
+function SkillButton({ id, cd, maxCd, cost, mana, onCast }: {
+  id: SkillId; cd: number; maxCd: number; cost: number; mana: number; onCast: () => void;
+}) {
+  const ready = cd <= 0 && mana >= cost;
+  const cdPct = cd / maxCd;
+  const tint =
+    id === "void" ? { c: "oklch(0.72 0.24 305)", g: "oklch(0.6 0.28 300 / 0.6)" } :
+    id === "freeze" ? { c: "oklch(0.85 0.15 220)", g: "oklch(0.7 0.2 220 / 0.6)" } :
+    { c: "oklch(0.85 0.15 200)", g: "oklch(0.7 0.22 210 / 0.6)" };
+  return (
+    <button
+      onClick={onCast}
+      disabled={!ready}
+      className="relative w-16 h-16 rounded-2xl border flex items-center justify-center overflow-hidden transition active:scale-95"
+      style={{
+        background: "oklch(0.14 0.03 265 / 0.9)",
+        borderColor: ready ? tint.c : "var(--border)",
+        backdropFilter: "blur(8px)",
+        boxShadow: ready ? `0 0 16px ${tint.g}, inset 0 0 14px oklch(0 0 0 / 0.4)` : "inset 0 0 10px oklch(0 0 0 / 0.5)",
+        opacity: mana < cost && cd <= 0 ? 0.6 : 1,
+      }}
+      aria-label={SKILL_DEFS[id].label}
+    >
+      <SkillIcon id={id} color={ready ? tint.c : "oklch(0.5 0.05 260)"} />
+      {cd > 0 && (
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ background: `conic-gradient(oklch(0 0 0 / 0.75) ${cdPct * 360}deg, transparent 0)` }}
+        >
+          <span className="font-display text-lg tabular-nums" style={{ color: "oklch(0.95 0.02 260)" }}>
+            {(cd / 1000).toFixed(1)}
+          </span>
+        </div>
+      )}
+      <div
+        className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full text-[0.55rem] font-bold tracking-wider border"
+        style={{
+          background: "oklch(0.14 0.03 265)",
+          color: mana >= cost ? "oklch(0.85 0.14 240)" : "oklch(0.6 0.05 260)",
+          borderColor: mana >= cost ? "oklch(0.6 0.2 250 / 0.6)" : "var(--border)",
+        }}
+      >
+        {cost}
+      </div>
+    </button>
+  );
+}
+
+function SkillIcon({ id, color }: { id: SkillId; color: string }) {
+  if (id === "void") {
+    return (
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+        <path d="M6 6 L24 24 M24 6 L6 24" />
+        <circle cx="15" cy="15" r="4" fill={color} opacity="0.35" />
+      </svg>
+    );
+  }
+  if (id === "freeze") {
+    return (
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+        <path d="M15 3 L15 27 M4 9 L26 21 M4 21 L26 9" />
+        <path d="M15 3 L12 6 M15 3 L18 6 M15 27 L12 24 M15 27 L18 24" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+      <path d="M15 4 A 11 11 0 0 1 26 15" />
+      <path d="M15 26 A 11 11 0 0 1 4 15" />
+      <circle cx="15" cy="15" r="2.5" fill={color} />
+    </svg>
+  );
+}
+
+
+
 /* ================= GAME STATE ================= */
 
 type GameState = {
