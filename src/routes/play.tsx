@@ -1663,20 +1663,48 @@ function drawProjectiles(ctx: CanvasRenderingContext2D, s: GameState) {
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
   ctx.save();
   ctx.translate(e.pos.x, e.pos.y);
-  const shadowR = e.type === "boss" ? 34 : 17;
-  const shadowH = e.type === "boss" ? 10 : 6;
-  // strong contact shadow — separates unit from floor
-  ctx.fillStyle = "oklch(0 0 0 / 0.65)";
+
+  // Lift character up off the ground (fake 3D standing pose)
+  const lift =
+    e.type === "boss" ? 16 :
+    e.type === "brute" ? 12 :
+    e.type === "shielder" ? 11 :
+    e.type === "archer" ? 10 :
+    e.type === "bomber" ? 9 :
+    10;
+
+  const shadowR = e.type === "boss" ? 38 : 19;
+  const shadowH = e.type === "boss" ? 12 : 7;
+  const shBob = Math.sin((time + e.id * 137) * 0.004) * 0.6;
+
+  // Soft ground shadow (kept at ground plane, NOT lifted)
+  const shGrad = ctx.createRadialGradient(2, e.type === "boss" ? 26 : 15, 2, 2, e.type === "boss" ? 26 : 15, shadowR);
+  shGrad.addColorStop(0, "oklch(0 0 0 / 0.7)");
+  shGrad.addColorStop(1, "oklch(0 0 0 / 0)");
+  ctx.fillStyle = shGrad;
   ctx.beginPath();
-  ctx.ellipse(2, e.type === "boss" ? 24 : 14, shadowR, shadowH, 0, 0, Math.PI * 2);
+  ctx.ellipse(2, e.type === "boss" ? 26 : 15, shadowR + shBob, shadowH + shBob * 0.4, 0, 0, Math.PI * 2);
   ctx.fill();
-  // subtle bright rim ring on the ground — "spotlight" pop like Brawl Stars
+
+  // Bright rim spotlight on the ground (unlifted)
   const rimR = e.type === "boss" ? 30 : 15;
-  ctx.strokeStyle = e.type === "boss" ? "oklch(0.9 0.22 30 / 0.28)" : "oklch(0.92 0.14 210 / 0.22)";
+  ctx.strokeStyle = e.type === "boss" ? "oklch(0.9 0.22 30 / 0.32)" : "oklch(0.92 0.14 210 / 0.26)";
   ctx.lineWidth = 1.4;
   ctx.beginPath();
   ctx.ellipse(0, e.type === "boss" ? 22 : 13, rimR, rimR * 0.32, 0, 0, Math.PI * 2);
   ctx.stroke();
+
+  // Projected body silhouette (skewed to look like a cast shadow of the standing figure)
+  ctx.save();
+  ctx.transform(1, 0, -0.55, 0.32, 0, 0);
+  ctx.fillStyle = "oklch(0 0 0 / 0.28)";
+  ctx.beginPath();
+  ctx.ellipse(0, 20 + lift * 1.2, (e.type === "boss" ? 22 : 12), (e.type === "boss" ? 30 : 18), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Lift the whole character body
+  ctx.translate(0, -lift);
 
   const flash = e.hitFlash > 0 ? Math.min(1, e.hitFlash / 200) : 0;
   switch (e.type) {
@@ -1687,6 +1715,20 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
     case "bomber": drawBombGoblin(ctx, e, time, flash); break;
     case "boss": drawWarlord(ctx, e, time, flash); break;
   }
+
+  // Top-down rim light (screen-blend highlight streak across upper body)
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  const rimGrad = ctx.createLinearGradient(0, -22, 0, 4);
+  rimGrad.addColorStop(0, "oklch(0.98 0.08 90 / 0.45)");
+  rimGrad.addColorStop(0.5, "oklch(0.9 0.08 90 / 0.12)");
+  rimGrad.addColorStop(1, "transparent");
+  ctx.fillStyle = rimGrad;
+  const rr = e.type === "boss" ? 22 : 12;
+  ctx.beginPath();
+  ctx.ellipse(-2, -8, rr, rr * 1.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 
   const r = enemyRadius(e.type);
   if (e.type !== "boss" && e.hp > 1) {
