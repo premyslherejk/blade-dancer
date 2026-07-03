@@ -2120,19 +2120,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
     case "boss": drawWarlord(ctx, e, time, flash); break;
   }
 
-  // Top-down rim light (screen-blend highlight streak across upper body)
-  ctx.save();
-  ctx.globalCompositeOperation = "screen";
-  const rimGrad = ctx.createLinearGradient(0, -22, 0, 4);
-  rimGrad.addColorStop(0, "oklch(0.98 0.08 90 / 0.45)");
-  rimGrad.addColorStop(0.5, "oklch(0.9 0.08 90 / 0.12)");
-  rimGrad.addColorStop(1, "transparent");
-  ctx.fillStyle = rimGrad;
-  const rr = e.type === "boss" ? 22 : 12;
-  ctx.beginPath();
-  ctx.ellipse(-2, -8, rr, rr * 1.3, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  // (removed: harsh screen-blend "bubble" rim — replaced by per-sprite gradient highlights)
 
   const r = enemyRadius(e.type);
   if (e.type !== "boss" && e.hp > 1) {
@@ -2151,305 +2139,526 @@ function bob(time: number, seed: number) {
   return Math.sin((time + seed * 137) * 0.004) * 1.3;
 }
 
+/* -- Shared body helpers ------------------------------------------------- */
+// A soft top-lit body gradient — replaces the harsh "screen" bubble.
+function bodyGradient(
+  ctx: CanvasRenderingContext2D,
+  cx: number, cy: number, rx: number, ry: number,
+  top: string, bottom: string
+) {
+  const g = ctx.createLinearGradient(cx, cy - ry, cx, cy + ry);
+  g.addColorStop(0, top);
+  g.addColorStop(1, bottom);
+  return g;
+}
+
+/* -- Grunt: nimble goblin scout with dagger ----------------------------- */
 function drawGoblin(ctx: CanvasRenderingContext2D, e: Enemy, time: number, flash: number) {
   ctx.save();
   ctx.translate(0, bob(time, e.id));
   ctx.rotate(e.facing + Math.PI / 2);
-  // body
-  ctx.fillStyle = flash > 0 ? "oklch(0.98 0.05 145)" : "oklch(0.48 0.14 145)";
-  ctx.beginPath(); ctx.ellipse(0, 2, 9, 11, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.14 0.06 145)"; ctx.lineWidth = 1.2; ctx.stroke();
-  // shoulder pads (leather)
-  ctx.fillStyle = "oklch(0.32 0.06 40)";
-  ctx.beginPath(); ctx.arc(-8, -1, 3, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(8, -1, 3, 0, Math.PI * 2); ctx.fill();
-  // dagger
-  ctx.save();
-  ctx.translate(8, -6); ctx.rotate(-0.35);
-  ctx.fillStyle = "oklch(0.3 0.05 40)"; ctx.fillRect(-1, 0, 2, 4);
-  ctx.fillStyle = "oklch(0.92 0.05 210)";
-  ctx.beginPath();
-  ctx.moveTo(-1.4, -9); ctx.lineTo(1.4, -9); ctx.lineTo(0.7, 0); ctx.lineTo(-0.7, 0);
-  ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = "oklch(0.3 0.05 220)"; ctx.lineWidth = 0.5; ctx.stroke();
-  ctx.restore();
-  // head
-  ctx.fillStyle = flash > 0 ? "oklch(0.98 0.05 145)" : "oklch(0.58 0.16 140)";
-  ctx.beginPath(); ctx.arc(0, -7, 5.5, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.16 0.06 145)"; ctx.lineWidth = 1; ctx.stroke();
-  // pointed ears
-  ctx.fillStyle = flash > 0 ? "oklch(0.9 0.05 145)" : "oklch(0.5 0.15 140)";
-  ctx.beginPath(); ctx.moveTo(-5, -8); ctx.lineTo(-9, -11); ctx.lineTo(-4.5, -6); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(5, -8); ctx.lineTo(9, -11); ctx.lineTo(4.5, -6); ctx.closePath(); ctx.fill();
-  // eyes
-  ctx.fillStyle = flash > 0 ? "oklch(0.2 0.05 40)" : "oklch(0.95 0.2 90)";
-  ctx.beginPath(); ctx.arc(-1.8, -8, 0.9, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(1.8, -8, 0.9, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-}
 
-function drawOrc(ctx: CanvasRenderingContext2D, e: Enemy, time: number, flash: number) {
+  // Loincloth / tunic tail
+  ctx.fillStyle = "oklch(0.3 0.1 40)";
+  ctx.beginPath();
+  ctx.moveTo(-6, 6); ctx.lineTo(6, 6); ctx.lineTo(4, 13); ctx.lineTo(-4, 13);
+  ctx.closePath(); ctx.fill();
+
+  // Torso (top-lit gradient)
+  ctx.fillStyle = flash > 0
+    ? "oklch(0.98 0.05 145)"
+    : bodyGradient(ctx, 0, 2, 9, 11, "oklch(0.62 0.16 145)", "oklch(0.32 0.12 145)");
+  ctx.beginPath(); ctx.ellipse(0, 2, 9, 11, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "oklch(0.1 0.06 145)"; ctx.lineWidth = 1.4; ctx.stroke();
+
+  // Leather chest strap
+  ctx.strokeStyle = "oklch(0.28 0.06 40)"; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(-7, -2); ctx.lineTo(6, 6); ctx.stroke();
+
+  // Arm holding dagger (extended forward-right)
+  ctx.strokeStyle = flash > 0 ? "oklch(0.98 0.05 145)" : "oklch(0.55 0.16 140)";
+  ctx.lineWidth = 3.2; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(6, -1); ctx.lineTo(9, -8); ctx.stroke();
+  // Off-hand
+  ctx.beginPath(); ctx.moveTo(-6, -1); ctx.lineTo(-8, 4); ctx.stroke();
+
+  // Dagger (in raised hand)
   ctx.save();
-  ctx.translate(0, bob(time, e.id) * 1.4);
-  ctx.rotate(e.facing + Math.PI / 2);
-  // body
-  ctx.fillStyle = flash > 0 ? "oklch(0.98 0.05 320)" : "oklch(0.42 0.1 320)";
-  ctx.beginPath(); ctx.ellipse(0, 3, 13, 14, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.1 0.05 320)"; ctx.lineWidth = 1.5; ctx.stroke();
-  // pauldrons + spikes
-  ctx.fillStyle = "oklch(0.28 0.05 30)";
-  ctx.beginPath(); ctx.arc(-11, -2, 4.5, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(11, -2, 4.5, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "oklch(0.85 0.04 260)";
-  for (const sx of [-11, 11]) {
-    ctx.beginPath();
-    ctx.moveTo(sx - 2, -5); ctx.lineTo(sx, -9); ctx.lineTo(sx + 2, -5);
-    ctx.closePath(); ctx.fill();
-  }
-  // mace
-  ctx.save();
-  ctx.translate(11, -6); ctx.rotate(-0.2);
-  ctx.strokeStyle = "oklch(0.28 0.06 40)"; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -12); ctx.stroke();
-  ctx.fillStyle = "oklch(0.42 0.03 260)";
-  ctx.beginPath(); ctx.arc(0, -14, 5, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "oklch(0.78 0.04 260)";
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a) * 5, -14 + Math.sin(a) * 5);
-    ctx.lineTo(Math.cos(a) * 8, -14 + Math.sin(a) * 8);
-    ctx.lineTo(Math.cos(a + 0.35) * 5, -14 + Math.sin(a + 0.35) * 5);
-    ctx.closePath();
-    ctx.fill();
-  }
+  ctx.translate(9, -8); ctx.rotate(-0.15);
+  // guard
+  ctx.fillStyle = "oklch(0.72 0.12 60)";
+  ctx.fillRect(-2.5, -1, 5, 1.6);
+  // grip
+  ctx.fillStyle = "oklch(0.22 0.05 40)"; ctx.fillRect(-1, 0, 2, 3);
+  // blade
+  const bg = ctx.createLinearGradient(0, -1, 0, -12);
+  bg.addColorStop(0, "oklch(0.96 0.03 210)");
+  bg.addColorStop(1, "oklch(0.55 0.08 220)");
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.moveTo(-1.4, -1); ctx.lineTo(1.4, -1); ctx.lineTo(0.6, -11); ctx.lineTo(0, -13); ctx.lineTo(-0.6, -11);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "oklch(0.2 0.05 220)"; ctx.lineWidth = 0.5; ctx.stroke();
   ctx.restore();
-  // head
-  ctx.fillStyle = flash > 0 ? "oklch(0.98 0.05 320)" : "oklch(0.5 0.15 320)";
-  ctx.beginPath(); ctx.arc(0, -9, 6.5, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.12 0.06 320)"; ctx.lineWidth = 1; ctx.stroke();
-  // tusks
-  ctx.fillStyle = "oklch(0.92 0.03 80)";
-  ctx.beginPath(); ctx.moveTo(-2.5, -6); ctx.lineTo(-3.5, -3); ctx.lineTo(-1.8, -5.5); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(2.5, -6); ctx.lineTo(3.5, -3); ctx.lineTo(1.8, -5.5); ctx.closePath(); ctx.fill();
-  // red eyes
-  ctx.shadowColor = "oklch(0.85 0.24 25)"; ctx.shadowBlur = 6;
-  ctx.fillStyle = flash > 0 ? "oklch(0.15 0.05 320)" : "oklch(0.8 0.24 25)";
-  ctx.beginPath(); ctx.arc(-2, -10, 1, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(2, -10, 1, 0, Math.PI * 2); ctx.fill();
+
+  // Head
+  ctx.fillStyle = flash > 0
+    ? "oklch(0.98 0.05 145)"
+    : bodyGradient(ctx, 0, -7, 5.5, 5.5, "oklch(0.72 0.16 140)", "oklch(0.44 0.16 140)");
+  ctx.beginPath(); ctx.arc(0, -7, 5.5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "oklch(0.14 0.06 145)"; ctx.lineWidth = 1; ctx.stroke();
+  // Pointed ears
+  ctx.fillStyle = flash > 0 ? "oklch(0.9 0.05 145)" : "oklch(0.52 0.15 140)";
+  ctx.beginPath(); ctx.moveTo(-5, -7); ctx.lineTo(-10, -11); ctx.lineTo(-4.2, -5); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(5, -7); ctx.lineTo(10, -11); ctx.lineTo(4.2, -5); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "oklch(0.14 0.06 145)"; ctx.lineWidth = 0.7; ctx.stroke();
+  // Snarl
+  ctx.strokeStyle = "oklch(0.1 0.05 40)"; ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.moveTo(-1.6, -5); ctx.lineTo(1.6, -5); ctx.stroke();
+  // Yellow eyes
+  ctx.shadowColor = "oklch(0.95 0.2 90)"; ctx.shadowBlur = 4;
+  ctx.fillStyle = flash > 0 ? "oklch(0.2 0.05 40)" : "oklch(0.96 0.22 95)";
+  ctx.beginPath(); ctx.arc(-1.8, -8, 1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(1.8, -8, 1, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0;
   ctx.restore();
 }
 
+/* -- Brute: hulking orc with two-handed mace --------------------------- */
+function drawOrc(ctx: CanvasRenderingContext2D, e: Enemy, time: number, flash: number) {
+  ctx.save();
+  ctx.translate(0, bob(time, e.id) * 1.2);
+  ctx.rotate(e.facing + Math.PI / 2);
+
+  // Kilt
+  ctx.fillStyle = "oklch(0.24 0.07 40)";
+  ctx.beginPath();
+  ctx.moveTo(-11, 10); ctx.lineTo(11, 10); ctx.lineTo(9, 17); ctx.lineTo(-9, 17);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "oklch(0.1 0.04 40)"; ctx.lineWidth = 0.8; ctx.stroke();
+
+  // Torso — muscular
+  ctx.fillStyle = flash > 0
+    ? "oklch(0.98 0.05 320)"
+    : bodyGradient(ctx, 0, 3, 13, 14, "oklch(0.58 0.14 320)", "oklch(0.28 0.1 320)");
+  ctx.beginPath(); ctx.ellipse(0, 3, 13, 14, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "oklch(0.08 0.05 320)"; ctx.lineWidth = 1.6; ctx.stroke();
+  // pec split
+  ctx.strokeStyle = "oklch(0.16 0.06 320 / 0.8)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(0, 8); ctx.stroke();
+
+  // Pauldrons with spikes
+  for (const sx of [-12, 12]) {
+    const pg = ctx.createRadialGradient(sx - 2, -4, 1, sx, -3, 5.5);
+    pg.addColorStop(0, "oklch(0.5 0.05 30)");
+    pg.addColorStop(1, "oklch(0.18 0.04 30)");
+    ctx.fillStyle = pg;
+    ctx.beginPath(); ctx.arc(sx, -3, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "oklch(0.06 0.03 30)"; ctx.lineWidth = 1; ctx.stroke();
+    // spike
+    ctx.fillStyle = "oklch(0.86 0.03 260)";
+    ctx.beginPath();
+    ctx.moveTo(sx - 2, -6); ctx.lineTo(sx, -11); ctx.lineTo(sx + 2, -6);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "oklch(0.15 0.03 260)"; ctx.lineWidth = 0.6; ctx.stroke();
+  }
+
+  // Both arms holding mace, up over shoulder
+  ctx.strokeStyle = flash > 0 ? "oklch(0.98 0.05 320)" : "oklch(0.5 0.14 320)";
+  ctx.lineWidth = 3.6; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(-8, 2); ctx.lineTo(-3, -8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8, 2); ctx.lineTo(3, -8); ctx.stroke();
+
+  // Mace held aloft, centered forward
+  ctx.save();
+  ctx.translate(0, -12);
+  // haft
+  ctx.strokeStyle = "oklch(0.24 0.05 40)"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(0, -10); ctx.stroke();
+  // grip wrap
+  ctx.strokeStyle = "oklch(0.14 0.04 40)"; ctx.lineWidth = 3.2;
+  for (let i = 0; i < 4; i++) {
+    const yy = 3 - i * 2;
+    ctx.beginPath(); ctx.moveTo(-1.4, yy); ctx.lineTo(1.4, yy); ctx.stroke();
+  }
+  // head (iron ball)
+  const mg = ctx.createRadialGradient(-2, -14, 1, 0, -12, 7);
+  mg.addColorStop(0, "oklch(0.6 0.02 260)");
+  mg.addColorStop(1, "oklch(0.18 0.02 260)");
+  ctx.fillStyle = mg;
+  ctx.beginPath(); ctx.arc(0, -12, 6.2, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "oklch(0.06 0.02 260)"; ctx.lineWidth = 1; ctx.stroke();
+  // flanges
+  ctx.fillStyle = "oklch(0.72 0.03 260)";
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 5.5, -12 + Math.sin(a) * 5.5);
+    ctx.lineTo(Math.cos(a) * 9, -12 + Math.sin(a) * 9);
+    ctx.lineTo(Math.cos(a + 0.5) * 5.5, -12 + Math.sin(a + 0.5) * 5.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "oklch(0.1 0.02 260)"; ctx.lineWidth = 0.5; ctx.stroke();
+  }
+  ctx.restore();
+
+  // Head — under mace
+  ctx.fillStyle = flash > 0
+    ? "oklch(0.98 0.05 320)"
+    : bodyGradient(ctx, 0, -9, 6.8, 6.8, "oklch(0.64 0.16 320)", "oklch(0.36 0.14 320)");
+  ctx.beginPath(); ctx.arc(0, -9, 6.8, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "oklch(0.1 0.06 320)"; ctx.lineWidth = 1.1; ctx.stroke();
+  // brow
+  ctx.strokeStyle = "oklch(0.1 0.04 320)"; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(-4, -11.5); ctx.lineTo(-1.5, -10.5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(4, -11.5); ctx.lineTo(1.5, -10.5); ctx.stroke();
+  // tusks
+  ctx.fillStyle = "oklch(0.94 0.03 80)";
+  ctx.beginPath(); ctx.moveTo(-2.8, -6.5); ctx.lineTo(-3.6, -3); ctx.lineTo(-1.8, -5.6); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(2.8, -6.5); ctx.lineTo(3.6, -3); ctx.lineTo(1.8, -5.6); ctx.closePath(); ctx.fill();
+  // red eyes
+  ctx.shadowColor = "oklch(0.85 0.24 25)"; ctx.shadowBlur = 6;
+  ctx.fillStyle = flash > 0 ? "oklch(0.15 0.05 320)" : "oklch(0.82 0.26 25)";
+  ctx.beginPath(); ctx.arc(-2.2, -10, 1.1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(2.2, -10, 1.1, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+/* -- Archer: hooded elf with bow held forward -------------------------- */
 function drawElfArcher(ctx: CanvasRenderingContext2D, e: Enemy, time: number, flash: number) {
   ctx.save();
   ctx.translate(0, bob(time, e.id));
   ctx.rotate(e.facing + Math.PI / 2);
-  // cape
-  ctx.fillStyle = "oklch(0.28 0.08 155)";
+
+  // Cape behind
+  ctx.fillStyle = "oklch(0.26 0.08 155)";
   ctx.beginPath();
-  ctx.moveTo(-8, -2); ctx.quadraticCurveTo(0, 14, 8, -2); ctx.quadraticCurveTo(0, 18, -8, -2);
+  ctx.moveTo(-8, -1); ctx.quadraticCurveTo(0, 16, 8, -1); ctx.quadraticCurveTo(0, 20, -8, -1);
   ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = "oklch(0.12 0.05 155)"; ctx.lineWidth = 0.8; ctx.stroke();
-  // Quiver on back with visible arrows — instant "archer" read
+  ctx.strokeStyle = "oklch(0.1 0.05 155)"; ctx.lineWidth = 0.8; ctx.stroke();
+
+  // Quiver on back with fletched arrows
   ctx.save();
-  ctx.translate(-5, 5); ctx.rotate(-0.4);
-  ctx.fillStyle = "oklch(0.32 0.08 40)";
-  ctx.fillRect(-2.2, -6, 4.4, 10);
-  ctx.strokeStyle = "oklch(0.12 0.05 40)"; ctx.lineWidth = 0.8; ctx.strokeRect(-2.2, -6, 4.4, 10);
-  // arrow fletchings
-  for (const ox of [-1.2, 0, 1.2]) {
-    ctx.fillStyle = "oklch(0.85 0.16 25)";
+  ctx.translate(-5, 4); ctx.rotate(-0.35);
+  const qg = ctx.createLinearGradient(-2.4, 0, 2.4, 0);
+  qg.addColorStop(0, "oklch(0.42 0.08 40)");
+  qg.addColorStop(1, "oklch(0.22 0.06 40)");
+  ctx.fillStyle = qg;
+  ctx.fillRect(-2.4, -7, 4.8, 11);
+  ctx.strokeStyle = "oklch(0.1 0.05 40)"; ctx.lineWidth = 0.8; ctx.strokeRect(-2.4, -7, 4.8, 11);
+  // strap
+  ctx.strokeStyle = "oklch(0.35 0.06 40)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-2.4, -3); ctx.lineTo(-8, 6); ctx.stroke();
+  // arrow shafts + fletchings
+  for (const ox of [-1.3, 0, 1.3]) {
+    ctx.strokeStyle = "oklch(0.88 0.05 60)"; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(ox, -7); ctx.lineTo(ox, -11); ctx.stroke();
+    ctx.fillStyle = "oklch(0.85 0.18 25)";
     ctx.beginPath();
-    ctx.moveTo(ox - 0.8, -6); ctx.lineTo(ox + 0.8, -6); ctx.lineTo(ox, -9);
+    ctx.moveTo(ox - 0.9, -11); ctx.lineTo(ox + 0.9, -11); ctx.lineTo(ox, -13.5);
     ctx.closePath(); ctx.fill();
   }
   ctx.restore();
-  // body
-  ctx.fillStyle = flash > 0 ? "oklch(0.98 0.05 155)" : "oklch(0.42 0.1 155)";
+
+  // Body
+  ctx.fillStyle = flash > 0
+    ? "oklch(0.98 0.05 155)"
+    : bodyGradient(ctx, 0, 1, 7, 9, "oklch(0.52 0.12 155)", "oklch(0.28 0.1 155)");
   ctx.beginPath(); ctx.ellipse(0, 1, 7, 9, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.15 0.05 155)"; ctx.lineWidth = 1; ctx.stroke();
-  // Bow — larger, held in front
+  ctx.strokeStyle = "oklch(0.12 0.05 155)"; ctx.lineWidth = 1.1; ctx.stroke();
+  // belt
+  ctx.strokeStyle = "oklch(0.32 0.06 40)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-6, 4); ctx.lineTo(6, 4); ctx.stroke();
+
+  // Arms holding bow — hands connect body to bow grip
+  ctx.strokeStyle = flash > 0 ? "oklch(0.98 0.05 155)" : "oklch(0.55 0.14 155)";
+  ctx.lineWidth = 2.6; ctx.lineCap = "round";
+  // front hand (grip)
+  ctx.beginPath(); ctx.moveTo(-5, -1); ctx.lineTo(0, -6); ctx.stroke();
+  // draw hand (pulling string)
+  ctx.beginPath(); ctx.moveTo(5, -1); ctx.lineTo(2, -3); ctx.stroke();
+
+  // Bow — vertical, hugging the body
   ctx.save();
-  ctx.translate(0, -11);
-  ctx.strokeStyle = flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.72 0.16 55)";
-  ctx.lineWidth = 2.6;
+  ctx.translate(0, -6);
+  // limbs
+  const bowStrokeCol = flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.62 0.16 55)";
+  ctx.strokeStyle = bowStrokeCol; ctx.lineWidth = 2.2;
   ctx.beginPath();
-  ctx.arc(0, 0, 11, -Math.PI * 0.42, Math.PI * 0.42);
+  ctx.moveTo(0, -10);
+  ctx.quadraticCurveTo(-8, -5, -6, 0);
+  ctx.quadraticCurveTo(-8, 5, 0, 10);
   ctx.stroke();
-  // bow tips
-  ctx.fillStyle = "oklch(0.35 0.08 40)";
-  ctx.beginPath(); ctx.arc(11 * Math.cos(-Math.PI * 0.42), 11 * Math.sin(-Math.PI * 0.42), 1.2, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(11 * Math.cos(Math.PI * 0.42), 11 * Math.sin(Math.PI * 0.42), 1.2, 0, Math.PI * 2); ctx.fill();
-  // string
-  ctx.strokeStyle = "oklch(0.94 0.02 240 / 0.9)"; ctx.lineWidth = 0.8;
+  // decorative wraps at grip
+  ctx.strokeStyle = "oklch(0.28 0.08 30)"; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(-6, -2); ctx.lineTo(-4, -2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-6, 2); ctx.lineTo(-4, 2); ctx.stroke();
+  // string (straight when idle; drawn back when about to fire)
+  const drawing = e.shootCd < 500;
+  ctx.strokeStyle = "oklch(0.96 0.02 240 / 0.95)"; ctx.lineWidth = 0.9;
   ctx.beginPath();
-  ctx.moveTo(11 * Math.cos(-Math.PI * 0.42), 11 * Math.sin(-Math.PI * 0.42));
-  ctx.lineTo(11 * Math.cos(Math.PI * 0.42), 11 * Math.sin(Math.PI * 0.42));
+  ctx.moveTo(0, -10);
+  if (drawing) ctx.lineTo(3, 0); else ctx.lineTo(-6, 0);
+  ctx.lineTo(0, 10);
   ctx.stroke();
-  // nocked arrow if close to firing
-  if (e.shootCd < 500) {
+  // Nocked arrow when firing
+  if (drawing) {
     ctx.fillStyle = "oklch(0.88 0.05 60)";
-    ctx.fillRect(-0.7, -14, 1.4, 14);
-    ctx.fillStyle = "oklch(0.9 0.18 30)";
+    ctx.fillRect(-6, -0.6, 12, 1.2);
+    ctx.fillStyle = "oklch(0.94 0.22 30)";
     ctx.beginPath();
-    ctx.moveTo(-2, -14); ctx.lineTo(2, -14); ctx.lineTo(0, -19); ctx.closePath();
-    ctx.fill();
+    ctx.moveTo(-6, -1.6); ctx.lineTo(-6, 1.6); ctx.lineTo(-11, 0);
+    ctx.closePath(); ctx.fill();
+    // fletching
+    ctx.fillStyle = "oklch(0.9 0.18 25)";
+    ctx.beginPath();
+    ctx.moveTo(6, -1.4); ctx.lineTo(8, 0); ctx.lineTo(6, 1.4);
+    ctx.closePath(); ctx.fill();
   }
   ctx.restore();
-  // hood
-  ctx.fillStyle = "oklch(0.24 0.08 155)";
+
+  // Hood
+  ctx.fillStyle = flash > 0
+    ? "oklch(0.9 0.05 155)"
+    : bodyGradient(ctx, 0, -6, 5.8, 5.8, "oklch(0.32 0.09 155)", "oklch(0.14 0.06 155)");
   ctx.beginPath(); ctx.arc(0, -6, 5.8, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.1 0.05 155)"; ctx.lineWidth = 1; ctx.stroke();
+  ctx.strokeStyle = "oklch(0.08 0.04 155)"; ctx.lineWidth = 1; ctx.stroke();
   // hood peak
   ctx.fillStyle = "oklch(0.18 0.06 155)";
   ctx.beginPath();
-  ctx.moveTo(-5, -8); ctx.lineTo(0, -13); ctx.lineTo(5, -8); ctx.quadraticCurveTo(0, -5, -5, -8);
+  ctx.moveTo(-5.5, -8); ctx.lineTo(0, -14); ctx.lineTo(5.5, -8);
+  ctx.quadraticCurveTo(0, -5, -5.5, -8);
   ctx.closePath(); ctx.fill();
-  // glowing eyes
+  // shadow inside hood
+  ctx.fillStyle = "oklch(0.05 0.03 155 / 0.55)";
+  ctx.beginPath(); ctx.ellipse(0, -5, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
+  // Glowing eyes
   ctx.shadowColor = "oklch(0.95 0.2 90)"; ctx.shadowBlur = 6;
-  ctx.fillStyle = flash > 0 ? "oklch(0.15 0.05 155)" : "oklch(0.95 0.2 90)";
-  ctx.beginPath(); ctx.arc(-1.5, -6, 0.8, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(1.5, -6, 0.8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = flash > 0 ? "oklch(0.15 0.05 155)" : "oklch(0.96 0.22 95)";
+  ctx.beginPath(); ctx.arc(-1.6, -5.5, 0.85, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(1.6, -5.5, 0.85, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0;
   ctx.restore();
 }
 
+/* -- Shielder: heavy knight with tower shield -------------------------- */
 function drawKnight(ctx: CanvasRenderingContext2D, e: Enemy, time: number, flash: number) {
   ctx.save();
-  ctx.translate(0, bob(time, e.id) * 0.6);
+  ctx.translate(0, bob(time, e.id) * 0.5);
   ctx.rotate(e.facing + Math.PI / 2);
-  // armor body
-  const bg = ctx.createLinearGradient(-10, 0, 10, 0);
-  bg.addColorStop(0, flash > 0 ? "oklch(0.98 0.02 260)" : "oklch(0.55 0.04 260)");
-  bg.addColorStop(1, flash > 0 ? "oklch(0.82 0.02 260)" : "oklch(0.3 0.04 260)");
-  ctx.fillStyle = bg;
+
+  // Sabatons peeking under body
+  ctx.fillStyle = "oklch(0.22 0.03 260)";
+  ctx.beginPath(); ctx.ellipse(-5, 13, 3.5, 2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(5, 13, 3.5, 2, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Armor body — polished steel
+  ctx.fillStyle = flash > 0
+    ? "oklch(0.98 0.02 260)"
+    : bodyGradient(ctx, 0, 2, 10, 12, "oklch(0.72 0.04 260)", "oklch(0.32 0.04 260)");
   ctx.beginPath(); ctx.ellipse(0, 2, 10, 12, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.08 0.03 260)"; ctx.lineWidth = 1.5; ctx.stroke();
-  // chest cross
-  ctx.strokeStyle = "oklch(0.85 0.16 80 / 0.9)"; ctx.lineWidth = 1.3;
+  ctx.strokeStyle = "oklch(0.06 0.03 260)"; ctx.lineWidth = 1.6; ctx.stroke();
+  // plate seams
+  ctx.strokeStyle = "oklch(0.14 0.03 260 / 0.8)"; ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(0, 12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-8, 4); ctx.quadraticCurveTo(0, 6, 8, 4); ctx.stroke();
+  // heraldic cross
+  ctx.strokeStyle = "oklch(0.88 0.18 80 / 0.95)"; ctx.lineWidth = 1.4;
   ctx.beginPath();
   ctx.moveTo(0, -3); ctx.lineTo(0, 9);
   ctx.moveTo(-4, 2); ctx.lineTo(4, 2);
   ctx.stroke();
-  // sword sheathed
+
+  // Pauldrons
+  for (const sx of [-10, 10]) {
+    const pg = ctx.createRadialGradient(sx - 1, -4, 1, sx, -3, 5);
+    pg.addColorStop(0, "oklch(0.75 0.03 260)");
+    pg.addColorStop(1, "oklch(0.22 0.03 260)");
+    ctx.fillStyle = pg;
+    ctx.beginPath(); ctx.arc(sx, -3, 4.4, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "oklch(0.06 0.03 260)"; ctx.lineWidth = 0.8; ctx.stroke();
+  }
+
+  // Sheathed sword on hip
   ctx.save();
-  ctx.translate(-8, 5); ctx.rotate(0.3);
-  ctx.fillStyle = "oklch(0.4 0.05 40)"; ctx.fillRect(-1, 0, 2, 4);
+  ctx.translate(-9, 5); ctx.rotate(0.35);
+  ctx.fillStyle = "oklch(0.28 0.05 40)"; ctx.fillRect(-1.2, 0, 2.4, 4);
   ctx.fillStyle = "oklch(0.9 0.05 210)";
   ctx.beginPath();
-  ctx.moveTo(-1.2, -10); ctx.lineTo(1.2, -10); ctx.lineTo(0.7, 0); ctx.lineTo(-0.7, 0);
+  ctx.moveTo(-1.2, -8); ctx.lineTo(1.2, -8); ctx.lineTo(0.7, 0); ctx.lineTo(-0.7, 0);
   ctx.closePath(); ctx.fill();
   ctx.restore();
-  // shield in front — oversized tower shield, dominant silhouette
+
+  // Tower shield in front — the dominant silhouette
   ctx.save();
-  ctx.translate(0, -15);
-  // shield drop-shadow behind
-  ctx.fillStyle = "oklch(0 0 0 / 0.5)";
+  ctx.translate(0, -14);
+  // shield drop-shadow
+  ctx.fillStyle = "oklch(0 0 0 / 0.55)";
   ctx.beginPath();
-  ctx.moveTo(-14, -6); ctx.lineTo(14, -6); ctx.lineTo(14, 4);
-  ctx.quadraticCurveTo(0, 18, -14, 4);
+  ctx.moveTo(-14, -7); ctx.lineTo(14, -7); ctx.lineTo(14, 5);
+  ctx.quadraticCurveTo(0, 20, -14, 5);
   ctx.closePath(); ctx.fill();
+  // shield face
   const shieldGrd = ctx.createLinearGradient(-13, 0, 13, 0);
-  shieldGrd.addColorStop(0, flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.75 0.16 240)");
+  shieldGrd.addColorStop(0, flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.78 0.16 240)");
   shieldGrd.addColorStop(0.5, flash > 0 ? "oklch(0.95 0.05 210)" : "oklch(0.55 0.14 240)");
   shieldGrd.addColorStop(1, flash > 0 ? "oklch(0.85 0.05 210)" : "oklch(0.3 0.1 245)");
   ctx.fillStyle = shieldGrd;
   ctx.beginPath();
   ctx.moveTo(-13, -6); ctx.lineTo(13, -6); ctx.lineTo(13, 4);
-  ctx.quadraticCurveTo(0, 17, -13, 4);
+  ctx.quadraticCurveTo(0, 18, -13, 4);
   ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = "oklch(0.06 0.04 240)"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.strokeStyle = "oklch(0.05 0.04 240)"; ctx.lineWidth = 2; ctx.stroke();
+  // vertical polish highlight
+  ctx.fillStyle = "oklch(1 0 0 / 0.18)";
+  ctx.beginPath();
+  ctx.moveTo(-3, -5); ctx.lineTo(-1, -5); ctx.lineTo(-1, 12); ctx.lineTo(-3, 15);
+  ctx.closePath(); ctx.fill();
   // gold rim studs
-  ctx.fillStyle = "oklch(0.92 0.16 80)";
-  for (const rx of [-9, -3, 3, 9]) {
-    ctx.beginPath();
-    ctx.arc(rx, -4, 1.2, 0, Math.PI * 2);
-    ctx.fill();
+  ctx.fillStyle = "oklch(0.94 0.16 80)";
+  for (const rx of [-10, -3.5, 3.5, 10]) {
+    ctx.beginPath(); ctx.arc(rx, -4, 1.3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "oklch(0.35 0.1 60)"; ctx.lineWidth = 0.4; ctx.stroke();
   }
-  // large gold emblem — clear identity
-  ctx.shadowColor = "oklch(0.9 0.18 70)"; ctx.shadowBlur = 6;
+  // gold emblem (diamond)
+  ctx.shadowColor = "oklch(0.9 0.18 70)"; ctx.shadowBlur = 8;
   ctx.fillStyle = "oklch(0.94 0.18 80)";
   ctx.beginPath();
-  ctx.moveTo(0, -3); ctx.lineTo(5, 4); ctx.lineTo(0, 10); ctx.lineTo(-5, 4);
+  ctx.moveTo(0, -2); ctx.lineTo(5.5, 5); ctx.lineTo(0, 12); ctx.lineTo(-5.5, 5);
   ctx.closePath(); ctx.fill();
   ctx.shadowBlur = 0;
+  ctx.strokeStyle = "oklch(0.35 0.1 60)"; ctx.lineWidth = 0.6; ctx.stroke();
   ctx.restore();
-  // helm
-  ctx.fillStyle = flash > 0 ? "oklch(0.98 0.02 260)" : "oklch(0.42 0.04 260)";
-  ctx.beginPath(); ctx.arc(0, -3, 5.5, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.08 0.03 260)"; ctx.lineWidth = 1; ctx.stroke();
+
+  // Helm — great helm above shield
+  ctx.fillStyle = flash > 0
+    ? "oklch(0.98 0.02 260)"
+    : bodyGradient(ctx, 0, -3, 6, 6, "oklch(0.6 0.03 260)", "oklch(0.22 0.03 260)");
+  ctx.beginPath(); ctx.arc(0, -3, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "oklch(0.05 0.03 260)"; ctx.lineWidth = 1.1; ctx.stroke();
+  // visor slit
   ctx.fillStyle = "oklch(0.04 0.02 260)";
-  ctx.fillRect(-3.5, -4, 7, 1.4);
-  // plume
+  ctx.fillRect(-4, -4.2, 8, 1.6);
+  ctx.shadowColor = "oklch(0.95 0.2 60)"; ctx.shadowBlur = 5;
+  ctx.fillStyle = "oklch(0.9 0.22 60)";
+  ctx.fillRect(-2.4, -3.9, 1.2, 1);
+  ctx.fillRect(1.2, -3.9, 1.2, 1);
+  ctx.shadowBlur = 0;
+  // Plume
   ctx.fillStyle = "oklch(0.68 0.22 25)";
   ctx.beginPath();
-  ctx.moveTo(0, -9); ctx.lineTo(-2, -3); ctx.lineTo(2, -3);
+  ctx.moveTo(0, -10);
+  ctx.quadraticCurveTo(-3, -6, -1.5, -3);
+  ctx.quadraticCurveTo(0, -5, 1.5, -3);
+  ctx.quadraticCurveTo(3, -6, 0, -10);
   ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "oklch(0.32 0.14 25)"; ctx.lineWidth = 0.6; ctx.stroke();
   ctx.restore();
 }
 
+/* -- Bomber: little goblin cradling a huge fused bomb ------------------ */
 function drawBombGoblin(ctx: CanvasRenderingContext2D, e: Enemy, time: number, flash: number) {
   const armed = e.fuse > 0;
+  const pulse = 0.5 + Math.sin(time * (armed ? 0.05 : 0.02)) * 0.5;
   ctx.save();
-  ctx.translate(0, bob(time, e.id) * (armed ? 0.4 : 1.5));
+  ctx.translate(0, bob(time, e.id) * (armed ? 0.4 : 1.4));
   ctx.rotate(e.facing + Math.PI / 2);
-  // body
-  ctx.fillStyle = flash > 0 ? "oklch(0.98 0.05 40)" : (armed ? "oklch(0.65 0.24 25)" : "oklch(0.5 0.15 55)");
-  ctx.beginPath(); ctx.ellipse(0, 2, 7, 8, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.15 0.06 40)"; ctx.lineWidth = 1; ctx.stroke();
-  // bomb — oversized, held above head so silhouette reads "bomber" instantly
+
+  // Panic legs shown under body when armed
+  ctx.fillStyle = "oklch(0.42 0.14 55)";
+  ctx.beginPath(); ctx.ellipse(-3.2, 10, 2.2, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(3.2, 10, 2.2, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Body — small, hunched
+  ctx.fillStyle = flash > 0
+    ? "oklch(0.98 0.05 40)"
+    : bodyGradient(ctx, 0, 3, 7.5, 8, armed ? "oklch(0.78 0.24 30)" : "oklch(0.62 0.18 60)", armed ? "oklch(0.4 0.2 25)" : "oklch(0.32 0.14 55)");
+  ctx.beginPath(); ctx.ellipse(0, 3, 7.5, 8, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "oklch(0.14 0.06 40)"; ctx.lineWidth = 1.1; ctx.stroke();
+
+  // Arms cradling bomb — visibly wrap around it
+  ctx.strokeStyle = flash > 0 ? "oklch(0.98 0.05 40)" : (armed ? "oklch(0.75 0.22 30)" : "oklch(0.55 0.16 55)");
+  ctx.lineWidth = 2.8; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(-4, -6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(4, -6); ctx.stroke();
+
+  // Head — small, tilted up looking at the bomb
+  ctx.fillStyle = flash > 0
+    ? "oklch(0.98 0.05 40)"
+    : bodyGradient(ctx, 0, -3, 4, 4, "oklch(0.68 0.18 60)", "oklch(0.42 0.14 55)");
+  ctx.beginPath(); ctx.arc(0, -3, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "oklch(0.16 0.06 40)"; ctx.lineWidth = 0.9; ctx.stroke();
+  // ears
+  ctx.fillStyle = flash > 0 ? "oklch(0.9 0.05 40)" : "oklch(0.55 0.16 55)";
+  ctx.beginPath(); ctx.moveTo(-3.5, -3); ctx.lineTo(-6.5, -6); ctx.lineTo(-3, -1.5); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(3.5, -3); ctx.lineTo(6.5, -6); ctx.lineTo(3, -1.5); ctx.closePath(); ctx.fill();
+  // wide panicked eyes
+  ctx.fillStyle = "oklch(0.96 0.03 90)";
+  ctx.beginPath(); ctx.arc(-1.4, -3.2, 1.1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(1.4, -3.2, 1.1, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "oklch(0.1 0.05 40)";
+  ctx.beginPath(); ctx.arc(-1.4, -3, 0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(1.4, -3, 0.5, 0, Math.PI * 2); ctx.fill();
+
+  // Bomb — cradled in front of chest, close to body
   ctx.save();
-  ctx.translate(0, -11);
-  // bomb shadow on body
-  ctx.fillStyle = "oklch(0 0 0 / 0.35)";
-  ctx.beginPath(); ctx.ellipse(1.5, 8, 8, 2.4, 0, 0, Math.PI * 2); ctx.fill();
-  // main sphere
-  const bombGrd = ctx.createRadialGradient(-3, -3, 1, 0, 0, 9);
-  bombGrd.addColorStop(0, "oklch(0.32 0.02 260)");
-  bombGrd.addColorStop(1, "oklch(0.08 0.02 260)");
+  ctx.translate(0, -3);
+  // ambient shadow on body under bomb
+  ctx.fillStyle = "oklch(0 0 0 / 0.3)";
+  ctx.beginPath(); ctx.ellipse(1, 9, 8, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+  // sphere
+  const bombGrd = ctx.createRadialGradient(-3, -4, 1, 0, 0, 10);
+  bombGrd.addColorStop(0, armed ? "oklch(0.55 0.15 25)" : "oklch(0.36 0.02 260)");
+  bombGrd.addColorStop(0.7, armed ? "oklch(0.24 0.14 25)" : "oklch(0.14 0.02 260)");
+  bombGrd.addColorStop(1, "oklch(0.06 0.02 260)");
   ctx.fillStyle = bombGrd;
-  ctx.beginPath(); ctx.arc(0, 0, 8.5, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = armed ? "oklch(0.85 0.28 25 / 0.9)" : "oklch(0.55 0.02 260)";
-  ctx.lineWidth = 1.4; ctx.stroke();
-  // hilight
-  ctx.fillStyle = "oklch(0.6 0.02 260 / 0.7)";
-  ctx.beginPath(); ctx.arc(-3, -3, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = armed
+    ? `oklch(0.85 0.28 25 / ${0.6 + pulse * 0.4})`
+    : "oklch(0.55 0.02 260)";
+  ctx.lineWidth = 1.5; ctx.stroke();
+  // iron band
+  ctx.strokeStyle = "oklch(0.28 0.02 260)"; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.ellipse(0, 0, 9, 3, 0, 0, Math.PI * 2); ctx.stroke();
+  // specular
+  ctx.fillStyle = "oklch(0.85 0.04 260 / 0.7)";
+  ctx.beginPath(); ctx.ellipse(-3.5, -4, 2.4, 1.2, -0.5, 0, Math.PI * 2); ctx.fill();
   // fuse cap
-  ctx.fillStyle = "oklch(0.4 0.03 260)";
-  ctx.fillRect(-1.6, -10, 3.2, 2.4);
+  ctx.fillStyle = "oklch(0.35 0.03 260)";
+  ctx.fillRect(-2, -11, 4, 3);
+  ctx.strokeStyle = "oklch(0.14 0.02 260)"; ctx.lineWidth = 0.6;
+  ctx.strokeRect(-2, -11, 4, 3);
   // fuse rope
-  const rate = armed ? 0.05 : 0.02;
-  const pulse = 0.5 + Math.sin(time * rate) * 0.5;
-  const col = armed ? "oklch(0.78 0.28 25)" : "oklch(0.95 0.2 80)";
-  ctx.strokeStyle = "oklch(0.42 0.05 40)"; ctx.lineWidth = 1.2;
+  ctx.strokeStyle = "oklch(0.44 0.05 40)"; ctx.lineWidth = 1.3;
   ctx.beginPath();
-  ctx.moveTo(0, -10); ctx.quadraticCurveTo(5, -14, 3, -17); ctx.stroke();
+  ctx.moveTo(0, -11);
+  ctx.quadraticCurveTo(4, -14, 3, -17);
+  ctx.stroke();
   // spark
-  ctx.shadowColor = col; ctx.shadowBlur = 14 + pulse * 10;
-  ctx.fillStyle = col;
+  const sparkCol = armed ? "oklch(0.82 0.28 25)" : "oklch(0.96 0.2 80)";
+  ctx.shadowColor = sparkCol; ctx.shadowBlur = 14 + pulse * 12;
+  ctx.fillStyle = sparkCol;
   ctx.beginPath();
-  ctx.arc(3, -17, 2.2 + pulse * (armed ? 1.8 : 0.9), 0, Math.PI * 2);
+  ctx.arc(3, -17, 2 + pulse * (armed ? 2 : 1), 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.restore();
-  // head
-  ctx.fillStyle = flash > 0 ? "oklch(0.98 0.05 40)" : "oklch(0.55 0.16 60)";
-  ctx.beginPath(); ctx.arc(0, -5, 4, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.18 0.06 40)"; ctx.lineWidth = 0.8; ctx.stroke();
-  ctx.fillStyle = "oklch(0.95 0.2 90)";
-  ctx.beginPath(); ctx.arc(-1.3, -5, 0.7, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(1.3, -5, 0.7, 0, Math.PI * 2); ctx.fill();
+
+  // Danger halo when armed
   if (armed) {
-    const r = enemyRadius(e.type);
-    ctx.strokeStyle = `oklch(0.8 0.26 30 / ${0.4 + pulse * 0.55})`;
-    ctx.lineWidth = 1.5 + pulse;
+    ctx.strokeStyle = `oklch(0.82 0.26 25 / ${0.35 + pulse * 0.5})`;
+    ctx.lineWidth = 1.6 + pulse * 0.8;
+    ctx.setLineDash([4, 3]);
     ctx.beginPath();
-    ctx.arc(0, 0, r + 6 + pulse * 4, 0, Math.PI * 2);
+    ctx.arc(0, 0, enemyRadius(e.type) + 6 + pulse * 3, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.setLineDash([]);
   }
   ctx.restore();
 }
+
+
 
 function drawWarlord(ctx: CanvasRenderingContext2D, e: Enemy, time: number, flash: number) {
   const enraged = e.phase === 1;
