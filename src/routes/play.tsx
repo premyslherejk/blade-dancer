@@ -1842,6 +1842,31 @@ function drawSlamTelegraphs(ctx: CanvasRenderingContext2D, s: GameState) {
 
 function drawProjectiles(ctx: CanvasRenderingContext2D, s: GameState) {
   for (const pr of s.projectiles) {
+    if (pr.friendly) {
+      // Blade Storm — spinning glowing crescent blade
+      ctx.save();
+      ctx.translate(pr.pos.x, pr.pos.y);
+      ctx.rotate(pr.rot ?? 0);
+      ctx.shadowColor = "oklch(0.85 0.18 210)";
+      ctx.shadowBlur = 18;
+      // outer glow ring
+      ctx.strokeStyle = "oklch(0.95 0.15 200 / 0.9)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, -Math.PI * 0.85, Math.PI * 0.85);
+      ctx.stroke();
+      ctx.strokeStyle = "oklch(0.75 0.24 200 / 0.7)";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, -Math.PI * 0.7, Math.PI * 0.7);
+      ctx.stroke();
+      // core
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "oklch(0.98 0.08 200)";
+      ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      continue;
+    }
     ctx.save();
     ctx.translate(pr.pos.x, pr.pos.y);
     const ang = Math.atan2(pr.vel.y, pr.vel.x);
