@@ -2120,19 +2120,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
     case "boss": drawWarlord(ctx, e, time, flash); break;
   }
 
-  // Top-down rim light (screen-blend highlight streak across upper body)
-  ctx.save();
-  ctx.globalCompositeOperation = "screen";
-  const rimGrad = ctx.createLinearGradient(0, -22, 0, 4);
-  rimGrad.addColorStop(0, "oklch(0.98 0.08 90 / 0.45)");
-  rimGrad.addColorStop(0.5, "oklch(0.9 0.08 90 / 0.12)");
-  rimGrad.addColorStop(1, "transparent");
-  ctx.fillStyle = rimGrad;
-  const rr = e.type === "boss" ? 22 : 12;
-  ctx.beginPath();
-  ctx.ellipse(-2, -8, rr, rr * 1.3, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  // (removed: harsh screen-blend "bubble" rim — replaced by per-sprite gradient highlights)
 
   const r = enemyRadius(e.type);
   if (e.type !== "boss" && e.hp > 1) {
