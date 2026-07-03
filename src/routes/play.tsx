@@ -937,7 +937,7 @@ function createLevelState(idx: number, carryHp: number, carryGold: number, carry
   // Restrict decorative props to a border band around the arena — keep the play area clean.
   const borderPad = 70; // width of decorated border ring
   const innerX0 = borderPad, innerX1 = ARENA_W - borderPad;
-  const innerY0 = borderPad, innerY1 = ARENA_H - borderPad;
+  const innerY0 = borderPad, innerY1 = levelH - borderPad;
   for (let i = 0; i < 400 && props.length < 70; i++) {
     const x = 14 + rng() * (ARENA_W - 28);
     const y = 14 + rng() * (levelH - 28);
