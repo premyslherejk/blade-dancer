@@ -1133,13 +1133,11 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
   drawFloor(ctx, s);
   drawFloorProps(ctx, s);
   drawSpikes(ctx, s);
-  drawBarrels(ctx, s);
-  drawWalls(ctx, s);
   drawTorches(ctx, s);
 
   // Player warm halo
   const grd = ctx.createRadialGradient(s.player.pos.x, s.player.pos.y, 22, s.player.pos.x, s.player.pos.y, 240);
-  grd.addColorStop(0, "oklch(0.85 0.15 60 / 0.16)");
+  grd.addColorStop(0, "oklch(0.85 0.15 60 / 0.18)");
   grd.addColorStop(1, "transparent");
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
@@ -1147,13 +1145,26 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
   drawTrail(ctx, s);
   drawSlamTelegraphs(ctx, s);
 
+  // Y-sorted pass: barrels + enemies + walls + player draw back-to-front
+  // so overlapping stacked units get correct fake-3D occlusion.
+  type SortItem = { y: number; draw: () => void };
+  const items: SortItem[] = [];
+  for (const b of s.barrels) {
+    if (!b.alive) continue;
+    items.push({ y: b.pos.y + b.radius, draw: () => drawBarrel(ctx, b, s.time) });
+  }
+  for (const w of s.walls) {
+    items.push({ y: w.y + w.h, draw: () => drawWall(ctx, w) });
+  }
   for (const e of s.enemies) {
     if (!e.alive) continue;
-    drawEnemy(ctx, e, s.time);
+    items.push({ y: e.pos.y + enemyRadius(e.type), draw: () => drawEnemy(ctx, e, s.time) });
   }
+  items.push({ y: s.player.pos.y + PLAYER_R, draw: () => drawPlayer(ctx, s) });
+  items.sort((a, b) => a.y - b.y);
+  for (const it of items) it.draw();
 
   drawProjectiles(ctx, s);
-  drawPlayer(ctx, s);
   if (s.aiming) drawAim(ctx, s);
   drawSlashes(ctx, s);
   drawParticles(ctx, s);
