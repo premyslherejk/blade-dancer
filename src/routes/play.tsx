@@ -1717,29 +1717,52 @@ function drawElfArcher(ctx: CanvasRenderingContext2D, e: Enemy, time: number, fl
   ctx.moveTo(-8, -2); ctx.quadraticCurveTo(0, 14, 8, -2); ctx.quadraticCurveTo(0, 18, -8, -2);
   ctx.closePath(); ctx.fill();
   ctx.strokeStyle = "oklch(0.12 0.05 155)"; ctx.lineWidth = 0.8; ctx.stroke();
+  // Quiver on back with visible arrows — instant "archer" read
+  ctx.save();
+  ctx.translate(-5, 5); ctx.rotate(-0.4);
+  ctx.fillStyle = "oklch(0.32 0.08 40)";
+  ctx.fillRect(-2.2, -6, 4.4, 10);
+  ctx.strokeStyle = "oklch(0.12 0.05 40)"; ctx.lineWidth = 0.8; ctx.strokeRect(-2.2, -6, 4.4, 10);
+  // arrow fletchings
+  for (const ox of [-1.2, 0, 1.2]) {
+    ctx.fillStyle = "oklch(0.85 0.16 25)";
+    ctx.beginPath();
+    ctx.moveTo(ox - 0.8, -6); ctx.lineTo(ox + 0.8, -6); ctx.lineTo(ox, -9);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
   // body
   ctx.fillStyle = flash > 0 ? "oklch(0.98 0.05 155)" : "oklch(0.42 0.1 155)";
   ctx.beginPath(); ctx.ellipse(0, 1, 7, 9, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = "oklch(0.15 0.05 155)"; ctx.lineWidth = 1; ctx.stroke();
-  // Bow
-  ctx.strokeStyle = flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.68 0.14 55)";
-  ctx.lineWidth = 2;
+  // Bow — larger, held in front
+  ctx.save();
+  ctx.translate(0, -11);
+  ctx.strokeStyle = flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.72 0.16 55)";
+  ctx.lineWidth = 2.6;
   ctx.beginPath();
-  ctx.arc(0, -9, 8, -Math.PI * 0.32, Math.PI * 0.32);
+  ctx.arc(0, 0, 11, -Math.PI * 0.42, Math.PI * 0.42);
   ctx.stroke();
+  // bow tips
+  ctx.fillStyle = "oklch(0.35 0.08 40)";
+  ctx.beginPath(); ctx.arc(11 * Math.cos(-Math.PI * 0.42), 11 * Math.sin(-Math.PI * 0.42), 1.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(11 * Math.cos(Math.PI * 0.42), 11 * Math.sin(Math.PI * 0.42), 1.2, 0, Math.PI * 2); ctx.fill();
   // string
-  ctx.strokeStyle = "oklch(0.92 0.02 240 / 0.85)"; ctx.lineWidth = 0.7;
+  ctx.strokeStyle = "oklch(0.94 0.02 240 / 0.9)"; ctx.lineWidth = 0.8;
   ctx.beginPath();
-  ctx.moveTo(2.5, -14); ctx.lineTo(2.5, -4); ctx.stroke();
+  ctx.moveTo(11 * Math.cos(-Math.PI * 0.42), 11 * Math.sin(-Math.PI * 0.42));
+  ctx.lineTo(11 * Math.cos(Math.PI * 0.42), 11 * Math.sin(Math.PI * 0.42));
+  ctx.stroke();
   // nocked arrow if close to firing
   if (e.shootCd < 500) {
-    ctx.fillStyle = "oklch(0.85 0.05 60)";
-    ctx.fillRect(-0.6, -18, 1.2, 12);
-    ctx.fillStyle = "oklch(0.85 0.03 30)";
+    ctx.fillStyle = "oklch(0.88 0.05 60)";
+    ctx.fillRect(-0.7, -14, 1.4, 14);
+    ctx.fillStyle = "oklch(0.9 0.18 30)";
     ctx.beginPath();
-    ctx.moveTo(-1.5, -18); ctx.lineTo(1.5, -18); ctx.lineTo(0, -22); ctx.closePath();
+    ctx.moveTo(-2, -14); ctx.lineTo(2, -14); ctx.lineTo(0, -19); ctx.closePath();
     ctx.fill();
   }
+  ctx.restore();
   // hood
   ctx.fillStyle = "oklch(0.24 0.08 155)";
   ctx.beginPath(); ctx.arc(0, -6, 5.8, 0, Math.PI * 2); ctx.fill();
