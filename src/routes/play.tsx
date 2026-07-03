@@ -1068,27 +1068,47 @@ function step(s: GameState, dtMsReal: number) {
   }
 
 
-  // Projectiles (real time — they visibly slow during aim thanks to global scale not applied; but we want them to slow too)
+  // Projectiles
   for (const pr of s.projectiles) {
     pr.pos.x += pr.vel.x * dt;
     pr.pos.y += pr.vel.y * dt;
     pr.life -= dtMsReal;
-    // hit walls
-    for (const w of s.walls) {
-      if (pr.pos.x > w.x && pr.pos.x < w.x + w.w && pr.pos.y > w.y && pr.pos.y < w.y + w.h) {
-        pr.life = 0;
-        for (let i = 0; i < 6; i++) {
-          s.particles.push({
-            pos: { ...pr.pos },
-            vel: { x: (Math.random() - 0.5) * 200, y: (Math.random() - 0.5) * 200 },
-            life: 300, max: 300, color: "oklch(0.85 0.18 55)", size: 1.5,
-          });
+    if (pr.rot !== undefined) pr.rot += dt * 22;
+    // hit walls (skip for friendly Blade Storm — it slices through walls, sword magic)
+    if (!pr.friendly) {
+      for (const w of s.walls) {
+        if (pr.pos.x > w.x && pr.pos.x < w.x + w.w && pr.pos.y > w.y && pr.pos.y < w.y + w.h) {
+          pr.life = 0;
+          for (let i = 0; i < 6; i++) {
+            s.particles.push({
+              pos: { ...pr.pos },
+              vel: { x: (Math.random() - 0.5) * 200, y: (Math.random() - 0.5) * 200 },
+              life: 300, max: 300, color: "oklch(0.85 0.18 55)", size: 1.5,
+            });
+          }
+          break;
         }
-        break;
       }
     }
-    // hit player
-    if (pr.life > 0 && s.player.invuln <= 0 && dist(pr.pos, s.player.pos) < PLAYER_R + pr.radius) {
+    if (pr.friendly) {
+      // hit enemies
+      for (const e of s.enemies) {
+        if (!e.alive) continue;
+        if (dist(pr.pos, e.pos) < enemyRadius(e.type) + pr.radius) {
+          e.hp -= pr.damage ?? 1;
+          e.hitFlash = 200;
+          spawnHitBurst(s, e.pos);
+          if (e.hp <= 0) {
+            e.alive = false;
+            s.gold += goldFor(e.type);
+            spawnDeathBurst(s, e.pos);
+            if (e.type === "bomber") explodeAt(s, e.pos, 78, true);
+          }
+          pr.life = 0;
+          break;
+        }
+      }
+    } else if (pr.life > 0 && s.player.invuln <= 0 && dist(pr.pos, s.player.pos) < PLAYER_R + pr.radius) {
       pr.life = 0;
       s.player.hp = Math.max(0, s.player.hp - 1);
       s.player.invuln = 900;
