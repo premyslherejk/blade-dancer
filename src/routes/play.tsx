@@ -1172,28 +1172,39 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
 /* ---------- Environment ---------- */
 
 function drawFloor(ctx: CanvasRenderingContext2D, s: GameState) {
-  const bg = ctx.createLinearGradient(0, 0, 0, ARENA_H);
-  bg.addColorStop(0, "oklch(0.17 0.025 265)");
-  bg.addColorStop(1, "oklch(0.12 0.02 265)");
+  // Deep border backdrop
+  ctx.fillStyle = "oklch(0.09 0.02 265)";
+  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+
+  // Clean stage: soft radial gradient makes center brightest, corners darker
+  const cx = ARENA_W / 2;
+  const cy = ARENA_H / 2;
+  const bg = ctx.createRadialGradient(cx, cy, 40, cx, cy, Math.max(ARENA_W, ARENA_H) * 0.75);
+  bg.addColorStop(0, "oklch(0.24 0.02 262)");
+  bg.addColorStop(0.65, "oklch(0.18 0.02 262)");
+  bg.addColorStop(1, "oklch(0.1 0.02 262)");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 
-  const rng = mulberry32(s.floorSeed);
-  const tile = 55;
-  for (let y = 0; y < ARENA_H; y += tile) {
-    for (let x = 0; x < ARENA_W; x += tile) {
-      const shade = rng();
-      const jx = (rng() - 0.5) * 2.5;
-      const jy = (rng() - 0.5) * 2.5;
-      ctx.fillStyle = `oklch(${(0.185 + shade * 0.05).toFixed(3)} 0.025 262)`;
-      ctx.fillRect(x + 1 + jx, y + 1 + jy, tile - 2, tile - 2);
-      ctx.fillStyle = "oklch(0.32 0.03 262 / 0.4)";
-      ctx.fillRect(x + 1 + jx, y + 1 + jy, tile - 2, 1.2);
-      ctx.strokeStyle = "oklch(0.06 0.02 262 / 0.9)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x + 0.5 + jx, y + 0.5 + jy, tile, tile);
-    }
+  // Very subtle large-tile seams (calm, not busy)
+  ctx.strokeStyle = "oklch(0.06 0.01 262 / 0.35)";
+  ctx.lineWidth = 1;
+  const tile = 110;
+  ctx.beginPath();
+  for (let x = tile; x < ARENA_W; x += tile) {
+    ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, ARENA_H);
   }
+  for (let y = tile; y < ARENA_H; y += tile) {
+    ctx.moveTo(0, y + 0.5); ctx.lineTo(ARENA_W, y + 0.5);
+  }
+  ctx.stroke();
+
+  // Vignette — pushes edges darker, focuses attention on gameplay
+  const vg = ctx.createRadialGradient(cx, cy, ARENA_W * 0.35, cx, cy, ARENA_W * 0.85);
+  vg.addColorStop(0, "transparent");
+  vg.addColorStop(1, "oklch(0.04 0.02 260 / 0.7)");
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 }
 
 function drawFloorProps(ctx: CanvasRenderingContext2D, s: GameState) {
