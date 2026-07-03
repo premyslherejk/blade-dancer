@@ -1430,7 +1430,7 @@ function step(s: GameState, dtMsReal: number) {
   // Ambient atmosphere — embers and dust drifting through the arena
   if (Math.random() < 0.55) {
     s.particles.push({
-      pos: { x: Math.random() * ARENA_W, y: ARENA_H - 20 + Math.random() * 40 },
+      pos: { x: Math.random() * ARENA_W, y: s.cameraY + ARENA_H - 20 + Math.random() * 40 },
       vel: { x: (Math.random() - 0.5) * 12, y: -20 - Math.random() * 30 },
       life: 2200 + Math.random() * 1200,
       max: 2600,
