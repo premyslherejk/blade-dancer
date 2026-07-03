@@ -20,6 +20,7 @@ type Enemy = {
   facing: number;
   shootCd: number;
   fuse: number; // bomber: >0 means armed, counts down to 0 then explodes
+  frozen: number; // ms remaining of Chrono Freeze
   // boss-only
   slamCd: number;
   slamCharge: number; // ms remaining on telegraph
@@ -34,9 +35,21 @@ type Slash = { a: Vec; b: Vec; life: number; max: number };
 type TrailDot = { pos: Vec; life: number };
 type Particle = { pos: Vec; vel: Vec; life: number; max: number; color: string; size: number; glow?: number; kind?: "spark" | "ember" | "dust" };
 type Explosion = { pos: Vec; life: number; max: number; radius: number };
-type Projectile = { pos: Vec; vel: Vec; life: number; radius: number };
+type Projectile = { pos: Vec; vel: Vec; life: number; radius: number; friendly?: boolean; damage?: number; rot?: number };
 type Prop = { kind: "moss" | "rock" | "grass" | "skull" | "crack" | "flower" | "pebble"; x: number; y: number; rot: number; size: number; seed: number };
 type Torch = { x: number; y: number; flicker: number };
+
+/* ---------- Skills ---------- */
+type SkillId = "void" | "freeze" | "storm";
+type SkillState = { cd: number; maxCd: number; cost: number };
+const SKILL_DEFS: Record<SkillId, { cost: number; maxCd: number; label: string }> = {
+  void:   { cost: 20, maxCd: 5000,  label: "Void Slash" },
+  freeze: { cost: 30, maxCd: 8000,  label: "Chrono Freeze" },
+  storm:  { cost: 45, maxCd: 10000, label: "Blade Storm" },
+};
+const MAX_MANA = 100;
+const MAX_HP = 3;
+const MANA_REGEN = 5; // per real second
 
 /* ---------- Constants ---------- */
 const ARENA_W = 440;
