@@ -1404,10 +1404,17 @@ function drawSpikes(ctx: CanvasRenderingContext2D, s: GameState) {
     ctx.save();
     ctx.translate(sp.pos.x, sp.pos.y);
     // shadow
-    ctx.fillStyle = "oklch(0 0 0 / 0.55)";
+    ctx.fillStyle = "oklch(0 0 0 / 0.7)";
     ctx.beginPath();
-    ctx.ellipse(2, 4, sp.radius + 2, (sp.radius + 2) * 0.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(2, 4, sp.radius + 3, (sp.radius + 3) * 0.5, 0, 0, Math.PI * 2);
     ctx.fill();
+    // red hazard glow ring — signals danger, pops from floor
+    const dpulse = 0.6 + Math.sin(s.time * 0.006 + sp.phase) * 0.4;
+    const dg = ctx.createRadialGradient(0, 0, sp.radius, 0, 0, sp.radius + 14);
+    dg.addColorStop(0, `oklch(0.7 0.28 25 / ${0.28 + dpulse * 0.18})`);
+    dg.addColorStop(1, "transparent");
+    ctx.fillStyle = dg;
+    ctx.beginPath(); ctx.arc(0, 0, sp.radius + 14, 0, Math.PI * 2); ctx.fill();
     // stone plate
     const g = ctx.createRadialGradient(0, 0, 4, 0, 0, sp.radius);
     g.addColorStop(0, "oklch(0.36 0.03 260)");
