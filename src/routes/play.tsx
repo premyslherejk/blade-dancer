@@ -940,7 +940,8 @@ function createLevelState(idx: number, carryHp: number, carryGold: number, carry
   const innerY0 = borderPad, innerY1 = ARENA_H - borderPad;
   for (let i = 0; i < 400 && props.length < 70; i++) {
     const x = 14 + rng() * (ARENA_W - 28);
-    const y = 14 + rng() * (ARENA_H - 28);
+    const y = 14 + rng() * (levelH - 28);
+
     // Skip center stage — decorations belong at the edges
     if (x > innerX0 && x < innerX1 && y > innerY0 && y < innerY1) continue;
     if (isBlocked(x, y, 6)) continue;
