@@ -1442,7 +1442,7 @@ function step(s: GameState, dtMsReal: number) {
   }
   if (Math.random() < 0.35) {
     s.particles.push({
-      pos: { x: Math.random() * ARENA_W, y: Math.random() * ARENA_H },
+      pos: { x: Math.random() * ARENA_W, y: s.cameraY + Math.random() * ARENA_H },
       vel: { x: (Math.random() - 0.5) * 8, y: (Math.random() - 0.5) * 6 },
       life: 1800,
       max: 1800,
