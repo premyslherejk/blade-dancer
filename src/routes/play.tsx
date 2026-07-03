@@ -613,10 +613,16 @@ function createLevelState(idx: number, carryHp: number, carryGold: number): Game
   };
 
   const props: Prop[] = [];
-  const kinds: Prop["kind"][] = ["moss", "moss", "crack", "crack", "grass", "grass", "grass", "pebble", "pebble", "rock", "flower", "skull"];
-  for (let i = 0; i < 240 && props.length < 90; i++) {
-    const x = 22 + rng() * (ARENA_W - 44);
-    const y = 22 + rng() * (ARENA_H - 44);
+  const kinds: Prop["kind"][] = ["moss", "moss", "crack", "grass", "grass", "grass", "pebble", "rock", "rock", "flower", "skull"];
+  // Restrict decorative props to a border band around the arena — keep the play area clean.
+  const borderPad = 70; // width of decorated border ring
+  const innerX0 = borderPad, innerX1 = ARENA_W - borderPad;
+  const innerY0 = borderPad, innerY1 = ARENA_H - borderPad;
+  for (let i = 0; i < 400 && props.length < 70; i++) {
+    const x = 14 + rng() * (ARENA_W - 28);
+    const y = 14 + rng() * (ARENA_H - 28);
+    // Skip center stage — decorations belong at the edges
+    if (x > innerX0 && x < innerX1 && y > innerY0 && y < innerY1) continue;
     if (isBlocked(x, y, 6)) continue;
     const kind = kinds[Math.floor(rng() * kinds.length)];
     props.push({ kind, x, y, rot: rng() * Math.PI * 2, size: 0.6 + rng() * 0.9, seed: rng() * 1000 });
