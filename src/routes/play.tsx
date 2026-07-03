@@ -710,6 +710,7 @@ function mkEnemy(id: number, x: number, y: number, type: EnemyType): Enemy {
     facing: Math.PI / 2,
     shootCd: type === "archer" ? 1600 + Math.random() * 900 : 0,
     fuse: 0,
+    frozen: 0,
     slamCd: 5200,
     slamCharge: 0,
     slamPos: { x, y },
