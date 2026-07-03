@@ -32,7 +32,7 @@ type Barrel = { pos: Vec; alive: boolean; radius: number };
 type Spike = { pos: Vec; radius: number; phase: number };
 type Slash = { a: Vec; b: Vec; life: number; max: number };
 type TrailDot = { pos: Vec; life: number };
-type Particle = { pos: Vec; vel: Vec; life: number; max: number; color: string; size: number };
+type Particle = { pos: Vec; vel: Vec; life: number; max: number; color: string; size: number; glow?: number; kind?: "spark" | "ember" | "dust" };
 type Explosion = { pos: Vec; life: number; max: number; radius: number };
 type Projectile = { pos: Vec; vel: Vec; life: number; radius: number };
 type Prop = { kind: "moss" | "rock" | "grass" | "skull" | "crack" | "flower" | "pebble"; x: number; y: number; rot: number; size: number; seed: number };
@@ -1037,10 +1037,44 @@ function step(s: GameState, dtMsReal: number) {
     p.life -= dtMsReal;
     p.pos.x += p.vel.x * dtReal;
     p.pos.y += p.vel.y * dtReal;
-    p.vel.x *= 0.94;
-    p.vel.y *= 0.94;
+    if (p.kind === "ember") {
+      p.vel.y -= 8 * dtReal; // embers drift up
+      p.vel.x *= 0.995;
+    } else if (p.kind === "dust") {
+      p.vel.x *= 0.99;
+      p.vel.y *= 0.99;
+    } else {
+      p.vel.x *= 0.94;
+      p.vel.y *= 0.94;
+    }
   }
   s.particles = s.particles.filter((p) => p.life > 0);
+
+  // Ambient atmosphere — embers and dust drifting through the arena
+  if (Math.random() < 0.55) {
+    s.particles.push({
+      pos: { x: Math.random() * ARENA_W, y: ARENA_H - 20 + Math.random() * 40 },
+      vel: { x: (Math.random() - 0.5) * 12, y: -20 - Math.random() * 30 },
+      life: 2200 + Math.random() * 1200,
+      max: 2600,
+      color: Math.random() > 0.4 ? "oklch(0.85 0.22 55)" : "oklch(0.92 0.18 30)",
+      size: 0.9 + Math.random() * 1.3,
+      glow: 10,
+      kind: "ember",
+    });
+  }
+  if (Math.random() < 0.35) {
+    s.particles.push({
+      pos: { x: Math.random() * ARENA_W, y: Math.random() * ARENA_H },
+      vel: { x: (Math.random() - 0.5) * 8, y: (Math.random() - 0.5) * 6 },
+      life: 1800,
+      max: 1800,
+      color: "oklch(0.75 0.05 240 / 0.6)",
+      size: 0.6 + Math.random() * 0.8,
+      glow: 4,
+      kind: "dust",
+    });
+  }
 
   for (const ex of s.explosions) ex.life -= dtMsReal;
   s.explosions = s.explosions.filter((ex) => ex.life > 0);
@@ -1663,20 +1697,48 @@ function drawProjectiles(ctx: CanvasRenderingContext2D, s: GameState) {
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
   ctx.save();
   ctx.translate(e.pos.x, e.pos.y);
-  const shadowR = e.type === "boss" ? 34 : 17;
-  const shadowH = e.type === "boss" ? 10 : 6;
-  // strong contact shadow — separates unit from floor
-  ctx.fillStyle = "oklch(0 0 0 / 0.65)";
+
+  // Lift character up off the ground (fake 3D standing pose)
+  const lift =
+    e.type === "boss" ? 16 :
+    e.type === "brute" ? 12 :
+    e.type === "shielder" ? 11 :
+    e.type === "archer" ? 10 :
+    e.type === "bomber" ? 9 :
+    10;
+
+  const shadowR = e.type === "boss" ? 38 : 19;
+  const shadowH = e.type === "boss" ? 12 : 7;
+  const shBob = Math.sin((time + e.id * 137) * 0.004) * 0.6;
+
+  // Soft ground shadow (kept at ground plane, NOT lifted)
+  const shGrad = ctx.createRadialGradient(2, e.type === "boss" ? 26 : 15, 2, 2, e.type === "boss" ? 26 : 15, shadowR);
+  shGrad.addColorStop(0, "oklch(0 0 0 / 0.7)");
+  shGrad.addColorStop(1, "oklch(0 0 0 / 0)");
+  ctx.fillStyle = shGrad;
   ctx.beginPath();
-  ctx.ellipse(2, e.type === "boss" ? 24 : 14, shadowR, shadowH, 0, 0, Math.PI * 2);
+  ctx.ellipse(2, e.type === "boss" ? 26 : 15, shadowR + shBob, shadowH + shBob * 0.4, 0, 0, Math.PI * 2);
   ctx.fill();
-  // subtle bright rim ring on the ground — "spotlight" pop like Brawl Stars
+
+  // Bright rim spotlight on the ground (unlifted)
   const rimR = e.type === "boss" ? 30 : 15;
-  ctx.strokeStyle = e.type === "boss" ? "oklch(0.9 0.22 30 / 0.28)" : "oklch(0.92 0.14 210 / 0.22)";
+  ctx.strokeStyle = e.type === "boss" ? "oklch(0.9 0.22 30 / 0.32)" : "oklch(0.92 0.14 210 / 0.26)";
   ctx.lineWidth = 1.4;
   ctx.beginPath();
   ctx.ellipse(0, e.type === "boss" ? 22 : 13, rimR, rimR * 0.32, 0, 0, Math.PI * 2);
   ctx.stroke();
+
+  // Projected body silhouette (skewed to look like a cast shadow of the standing figure)
+  ctx.save();
+  ctx.transform(1, 0, -0.55, 0.32, 0, 0);
+  ctx.fillStyle = "oklch(0 0 0 / 0.28)";
+  ctx.beginPath();
+  ctx.ellipse(0, 20 + lift * 1.2, (e.type === "boss" ? 22 : 12), (e.type === "boss" ? 30 : 18), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Lift the whole character body
+  ctx.translate(0, -lift);
 
   const flash = e.hitFlash > 0 ? Math.min(1, e.hitFlash / 200) : 0;
   switch (e.type) {
@@ -1687,6 +1749,20 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
     case "bomber": drawBombGoblin(ctx, e, time, flash); break;
     case "boss": drawWarlord(ctx, e, time, flash); break;
   }
+
+  // Top-down rim light (screen-blend highlight streak across upper body)
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  const rimGrad = ctx.createLinearGradient(0, -22, 0, 4);
+  rimGrad.addColorStop(0, "oklch(0.98 0.08 90 / 0.45)");
+  rimGrad.addColorStop(0.5, "oklch(0.9 0.08 90 / 0.12)");
+  rimGrad.addColorStop(1, "transparent");
+  ctx.fillStyle = rimGrad;
+  const rr = e.type === "boss" ? 22 : 12;
+  ctx.beginPath();
+  ctx.ellipse(-2, -8, rr, rr * 1.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 
   const r = enemyRadius(e.type);
   if (e.type !== "boss" && e.hp > 1) {
@@ -2128,17 +2204,36 @@ function drawPlayer(ctx: CanvasRenderingContext2D, s: GameState) {
   const p = s.player;
   ctx.save();
   ctx.translate(p.pos.x, p.pos.y);
-  ctx.fillStyle = "oklch(0 0 0 / 0.55)";
+
+  const lift = p.dashing ? 8 : 12;
+
+  // Soft ground shadow
+  const shGrad = ctx.createRadialGradient(2, 16, 2, 2, 16, 20);
+  shGrad.addColorStop(0, "oklch(0 0 0 / 0.7)");
+  shGrad.addColorStop(1, "oklch(0 0 0 / 0)");
+  ctx.fillStyle = shGrad;
   ctx.beginPath();
-  ctx.ellipse(2, 15, 16, 6, 0, 0, Math.PI * 2);
+  ctx.ellipse(2, 16, 18, 7, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  // Projected body silhouette
+  ctx.save();
+  ctx.transform(1, 0, -0.55, 0.32, 0, 0);
+  ctx.fillStyle = "oklch(0 0 0 / 0.3)";
+  ctx.beginPath();
+  ctx.ellipse(0, 22 + lift * 1.2, 13, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Lift character up
+  ctx.translate(0, -lift);
 
   const flicker = p.invuln > 0 && Math.floor(p.invuln / 60) % 2 === 0 ? 0.4 : 1;
   ctx.globalAlpha = flicker;
 
-  const auraR = 26 + Math.sin(s.time * 0.004) * 2;
+  const auraR = 28 + Math.sin(s.time * 0.004) * 2;
   const aura = ctx.createRadialGradient(0, 0, 8, 0, 0, auraR);
-  aura.addColorStop(0, "oklch(0.9 0.15 210 / 0.35)");
+  aura.addColorStop(0, "oklch(0.9 0.15 210 / 0.4)");
   aura.addColorStop(1, "transparent");
   ctx.fillStyle = aura;
   ctx.beginPath();
@@ -2280,15 +2375,26 @@ function drawSlashes(ctx: CanvasRenderingContext2D, s: GameState) {
 }
 
 function drawParticles(ctx: CanvasRenderingContext2D, s: GameState) {
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
   for (const p of s.particles) {
-    const a = p.life / p.max;
+    const a = Math.max(0, Math.min(1, p.life / p.max));
+    const glow = p.glow ?? 8;
     ctx.globalAlpha = a;
+    if (glow > 0) {
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = glow;
+    } else {
+      ctx.shadowBlur = 0;
+    }
     ctx.fillStyle = p.color;
     ctx.beginPath();
     ctx.arc(p.pos.x, p.pos.y, p.size, 0, Math.PI * 2);
     ctx.fill();
   }
+  ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 function drawExplosions(ctx: CanvasRenderingContext2D, s: GameState) {
