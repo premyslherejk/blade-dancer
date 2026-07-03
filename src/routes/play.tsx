@@ -613,10 +613,16 @@ function createLevelState(idx: number, carryHp: number, carryGold: number): Game
   };
 
   const props: Prop[] = [];
-  const kinds: Prop["kind"][] = ["moss", "moss", "crack", "crack", "grass", "grass", "grass", "pebble", "pebble", "rock", "flower", "skull"];
-  for (let i = 0; i < 240 && props.length < 90; i++) {
-    const x = 22 + rng() * (ARENA_W - 44);
-    const y = 22 + rng() * (ARENA_H - 44);
+  const kinds: Prop["kind"][] = ["moss", "moss", "crack", "grass", "grass", "grass", "pebble", "rock", "rock", "flower", "skull"];
+  // Restrict decorative props to a border band around the arena — keep the play area clean.
+  const borderPad = 70; // width of decorated border ring
+  const innerX0 = borderPad, innerX1 = ARENA_W - borderPad;
+  const innerY0 = borderPad, innerY1 = ARENA_H - borderPad;
+  for (let i = 0; i < 400 && props.length < 70; i++) {
+    const x = 14 + rng() * (ARENA_W - 28);
+    const y = 14 + rng() * (ARENA_H - 28);
+    // Skip center stage — decorations belong at the edges
+    if (x > innerX0 && x < innerX1 && y > innerY0 && y < innerY1) continue;
     if (isBlocked(x, y, 6)) continue;
     const kind = kinds[Math.floor(rng() * kinds.length)];
     props.push({ kind, x, y, rot: rng() * Math.PI * 2, size: 0.6 + rng() * 0.9, seed: rng() * 1000 });
@@ -1172,28 +1178,39 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
 /* ---------- Environment ---------- */
 
 function drawFloor(ctx: CanvasRenderingContext2D, s: GameState) {
-  const bg = ctx.createLinearGradient(0, 0, 0, ARENA_H);
-  bg.addColorStop(0, "oklch(0.17 0.025 265)");
-  bg.addColorStop(1, "oklch(0.12 0.02 265)");
+  // Deep border backdrop
+  ctx.fillStyle = "oklch(0.09 0.02 265)";
+  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+
+  // Clean stage: soft radial gradient makes center brightest, corners darker
+  const cx = ARENA_W / 2;
+  const cy = ARENA_H / 2;
+  const bg = ctx.createRadialGradient(cx, cy, 40, cx, cy, Math.max(ARENA_W, ARENA_H) * 0.75);
+  bg.addColorStop(0, "oklch(0.24 0.02 262)");
+  bg.addColorStop(0.65, "oklch(0.18 0.02 262)");
+  bg.addColorStop(1, "oklch(0.1 0.02 262)");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 
-  const rng = mulberry32(s.floorSeed);
-  const tile = 55;
-  for (let y = 0; y < ARENA_H; y += tile) {
-    for (let x = 0; x < ARENA_W; x += tile) {
-      const shade = rng();
-      const jx = (rng() - 0.5) * 2.5;
-      const jy = (rng() - 0.5) * 2.5;
-      ctx.fillStyle = `oklch(${(0.185 + shade * 0.05).toFixed(3)} 0.025 262)`;
-      ctx.fillRect(x + 1 + jx, y + 1 + jy, tile - 2, tile - 2);
-      ctx.fillStyle = "oklch(0.32 0.03 262 / 0.4)";
-      ctx.fillRect(x + 1 + jx, y + 1 + jy, tile - 2, 1.2);
-      ctx.strokeStyle = "oklch(0.06 0.02 262 / 0.9)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x + 0.5 + jx, y + 0.5 + jy, tile, tile);
-    }
+  // Very subtle large-tile seams (calm, not busy)
+  ctx.strokeStyle = "oklch(0.06 0.01 262 / 0.35)";
+  ctx.lineWidth = 1;
+  const tile = 110;
+  ctx.beginPath();
+  for (let x = tile; x < ARENA_W; x += tile) {
+    ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, ARENA_H);
   }
+  for (let y = tile; y < ARENA_H; y += tile) {
+    ctx.moveTo(0, y + 0.5); ctx.lineTo(ARENA_W, y + 0.5);
+  }
+  ctx.stroke();
+
+  // Vignette — pushes edges darker, focuses attention on gameplay
+  const vg = ctx.createRadialGradient(cx, cy, ARENA_W * 0.35, cx, cy, ARENA_W * 0.85);
+  vg.addColorStop(0, "transparent");
+  vg.addColorStop(1, "oklch(0.04 0.02 260 / 0.7)");
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 }
 
 function drawFloorProps(ctx: CanvasRenderingContext2D, s: GameState) {
@@ -1387,10 +1404,17 @@ function drawSpikes(ctx: CanvasRenderingContext2D, s: GameState) {
     ctx.save();
     ctx.translate(sp.pos.x, sp.pos.y);
     // shadow
-    ctx.fillStyle = "oklch(0 0 0 / 0.55)";
+    ctx.fillStyle = "oklch(0 0 0 / 0.7)";
     ctx.beginPath();
-    ctx.ellipse(2, 4, sp.radius + 2, (sp.radius + 2) * 0.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(2, 4, sp.radius + 3, (sp.radius + 3) * 0.5, 0, 0, Math.PI * 2);
     ctx.fill();
+    // red hazard glow ring — signals danger, pops from floor
+    const dpulse = 0.6 + Math.sin(s.time * 0.006 + sp.phase) * 0.4;
+    const dg = ctx.createRadialGradient(0, 0, sp.radius, 0, 0, sp.radius + 14);
+    dg.addColorStop(0, `oklch(0.7 0.28 25 / ${0.28 + dpulse * 0.18})`);
+    dg.addColorStop(1, "transparent");
+    ctx.fillStyle = dg;
+    ctx.beginPath(); ctx.arc(0, 0, sp.radius + 14, 0, Math.PI * 2); ctx.fill();
     // stone plate
     const g = ctx.createRadialGradient(0, 0, 4, 0, 0, sp.radius);
     g.addColorStop(0, "oklch(0.36 0.03 260)");
@@ -1438,13 +1462,20 @@ function drawBarrels(ctx: CanvasRenderingContext2D, s: GameState) {
     if (!b.alive) continue;
     ctx.save();
     ctx.translate(b.pos.x, b.pos.y);
-    ctx.fillStyle = "oklch(0 0 0 / 0.5)";
+    // strong contact shadow
+    ctx.fillStyle = "oklch(0 0 0 / 0.65)";
     ctx.beginPath();
-    ctx.ellipse(3, b.radius, b.radius, b.radius * 0.42, 0, 0, Math.PI * 2);
+    ctx.ellipse(3, b.radius, b.radius + 2, (b.radius + 2) * 0.45, 0, 0, Math.PI * 2);
     ctx.fill();
+    // orange spotlight rim under barrel — pops from floor
+    const rim = ctx.createRadialGradient(0, 0, b.radius, 0, 0, b.radius + 10);
+    rim.addColorStop(0, "oklch(0.75 0.2 45 / 0.35)");
+    rim.addColorStop(1, "transparent");
+    ctx.fillStyle = rim;
+    ctx.beginPath(); ctx.arc(0, 0, b.radius + 10, 0, Math.PI * 2); ctx.fill();
     const bg = ctx.createRadialGradient(-4, -4, 3, 0, 0, b.radius);
-    bg.addColorStop(0, "oklch(0.58 0.14 40)");
-    bg.addColorStop(1, "oklch(0.26 0.1 30)");
+    bg.addColorStop(0, "oklch(0.68 0.18 50)");
+    bg.addColorStop(1, "oklch(0.28 0.12 30)");
     ctx.fillStyle = bg;
     ctx.beginPath();
     ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
@@ -1558,12 +1589,20 @@ function drawProjectiles(ctx: CanvasRenderingContext2D, s: GameState) {
 function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy, time: number) {
   ctx.save();
   ctx.translate(e.pos.x, e.pos.y);
-  const shadowR = e.type === "boss" ? 30 : 15;
-  const shadowH = e.type === "boss" ? 9 : 5;
-  ctx.fillStyle = "oklch(0 0 0 / 0.5)";
+  const shadowR = e.type === "boss" ? 34 : 17;
+  const shadowH = e.type === "boss" ? 10 : 6;
+  // strong contact shadow — separates unit from floor
+  ctx.fillStyle = "oklch(0 0 0 / 0.65)";
   ctx.beginPath();
   ctx.ellipse(2, e.type === "boss" ? 24 : 14, shadowR, shadowH, 0, 0, Math.PI * 2);
   ctx.fill();
+  // subtle bright rim ring on the ground — "spotlight" pop like Brawl Stars
+  const rimR = e.type === "boss" ? 30 : 15;
+  ctx.strokeStyle = e.type === "boss" ? "oklch(0.9 0.22 30 / 0.28)" : "oklch(0.92 0.14 210 / 0.22)";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.ellipse(0, e.type === "boss" ? 22 : 13, rimR, rimR * 0.32, 0, 0, Math.PI * 2);
+  ctx.stroke();
 
   const flash = e.hitFlash > 0 ? Math.min(1, e.hitFlash / 200) : 0;
   switch (e.type) {
@@ -1692,29 +1731,52 @@ function drawElfArcher(ctx: CanvasRenderingContext2D, e: Enemy, time: number, fl
   ctx.moveTo(-8, -2); ctx.quadraticCurveTo(0, 14, 8, -2); ctx.quadraticCurveTo(0, 18, -8, -2);
   ctx.closePath(); ctx.fill();
   ctx.strokeStyle = "oklch(0.12 0.05 155)"; ctx.lineWidth = 0.8; ctx.stroke();
+  // Quiver on back with visible arrows — instant "archer" read
+  ctx.save();
+  ctx.translate(-5, 5); ctx.rotate(-0.4);
+  ctx.fillStyle = "oklch(0.32 0.08 40)";
+  ctx.fillRect(-2.2, -6, 4.4, 10);
+  ctx.strokeStyle = "oklch(0.12 0.05 40)"; ctx.lineWidth = 0.8; ctx.strokeRect(-2.2, -6, 4.4, 10);
+  // arrow fletchings
+  for (const ox of [-1.2, 0, 1.2]) {
+    ctx.fillStyle = "oklch(0.85 0.16 25)";
+    ctx.beginPath();
+    ctx.moveTo(ox - 0.8, -6); ctx.lineTo(ox + 0.8, -6); ctx.lineTo(ox, -9);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
   // body
   ctx.fillStyle = flash > 0 ? "oklch(0.98 0.05 155)" : "oklch(0.42 0.1 155)";
   ctx.beginPath(); ctx.ellipse(0, 1, 7, 9, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = "oklch(0.15 0.05 155)"; ctx.lineWidth = 1; ctx.stroke();
-  // Bow
-  ctx.strokeStyle = flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.68 0.14 55)";
-  ctx.lineWidth = 2;
+  // Bow — larger, held in front
+  ctx.save();
+  ctx.translate(0, -11);
+  ctx.strokeStyle = flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.72 0.16 55)";
+  ctx.lineWidth = 2.6;
   ctx.beginPath();
-  ctx.arc(0, -9, 8, -Math.PI * 0.32, Math.PI * 0.32);
+  ctx.arc(0, 0, 11, -Math.PI * 0.42, Math.PI * 0.42);
   ctx.stroke();
+  // bow tips
+  ctx.fillStyle = "oklch(0.35 0.08 40)";
+  ctx.beginPath(); ctx.arc(11 * Math.cos(-Math.PI * 0.42), 11 * Math.sin(-Math.PI * 0.42), 1.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(11 * Math.cos(Math.PI * 0.42), 11 * Math.sin(Math.PI * 0.42), 1.2, 0, Math.PI * 2); ctx.fill();
   // string
-  ctx.strokeStyle = "oklch(0.92 0.02 240 / 0.85)"; ctx.lineWidth = 0.7;
+  ctx.strokeStyle = "oklch(0.94 0.02 240 / 0.9)"; ctx.lineWidth = 0.8;
   ctx.beginPath();
-  ctx.moveTo(2.5, -14); ctx.lineTo(2.5, -4); ctx.stroke();
+  ctx.moveTo(11 * Math.cos(-Math.PI * 0.42), 11 * Math.sin(-Math.PI * 0.42));
+  ctx.lineTo(11 * Math.cos(Math.PI * 0.42), 11 * Math.sin(Math.PI * 0.42));
+  ctx.stroke();
   // nocked arrow if close to firing
   if (e.shootCd < 500) {
-    ctx.fillStyle = "oklch(0.85 0.05 60)";
-    ctx.fillRect(-0.6, -18, 1.2, 12);
-    ctx.fillStyle = "oklch(0.85 0.03 30)";
+    ctx.fillStyle = "oklch(0.88 0.05 60)";
+    ctx.fillRect(-0.7, -14, 1.4, 14);
+    ctx.fillStyle = "oklch(0.9 0.18 30)";
     ctx.beginPath();
-    ctx.moveTo(-1.5, -18); ctx.lineTo(1.5, -18); ctx.lineTo(0, -22); ctx.closePath();
+    ctx.moveTo(-2, -14); ctx.lineTo(2, -14); ctx.lineTo(0, -19); ctx.closePath();
     ctx.fill();
   }
+  ctx.restore();
   // hood
   ctx.fillStyle = "oklch(0.24 0.08 155)";
   ctx.beginPath(); ctx.arc(0, -6, 5.8, 0, Math.PI * 2); ctx.fill();
@@ -1759,29 +1821,39 @@ function drawKnight(ctx: CanvasRenderingContext2D, e: Enemy, time: number, flash
   ctx.moveTo(-1.2, -10); ctx.lineTo(1.2, -10); ctx.lineTo(0.7, 0); ctx.lineTo(-0.7, 0);
   ctx.closePath(); ctx.fill();
   ctx.restore();
-  // shield in front
+  // shield in front — oversized tower shield, dominant silhouette
   ctx.save();
-  ctx.translate(0, -12);
-  const shieldGrd = ctx.createLinearGradient(-10, 0, 10, 0);
-  shieldGrd.addColorStop(0, flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.7 0.14 240)");
-  shieldGrd.addColorStop(1, flash > 0 ? "oklch(0.85 0.05 210)" : "oklch(0.38 0.1 245)");
+  ctx.translate(0, -15);
+  // shield drop-shadow behind
+  ctx.fillStyle = "oklch(0 0 0 / 0.5)";
+  ctx.beginPath();
+  ctx.moveTo(-14, -6); ctx.lineTo(14, -6); ctx.lineTo(14, 4);
+  ctx.quadraticCurveTo(0, 18, -14, 4);
+  ctx.closePath(); ctx.fill();
+  const shieldGrd = ctx.createLinearGradient(-13, 0, 13, 0);
+  shieldGrd.addColorStop(0, flash > 0 ? "oklch(0.98 0.05 210)" : "oklch(0.75 0.16 240)");
+  shieldGrd.addColorStop(0.5, flash > 0 ? "oklch(0.95 0.05 210)" : "oklch(0.55 0.14 240)");
+  shieldGrd.addColorStop(1, flash > 0 ? "oklch(0.85 0.05 210)" : "oklch(0.3 0.1 245)");
   ctx.fillStyle = shieldGrd;
   ctx.beginPath();
-  ctx.moveTo(-9, -3); ctx.lineTo(9, -3); ctx.lineTo(9, 2);
-  ctx.quadraticCurveTo(0, 11, -9, 2);
+  ctx.moveTo(-13, -6); ctx.lineTo(13, -6); ctx.lineTo(13, 4);
+  ctx.quadraticCurveTo(0, 17, -13, 4);
   ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = "oklch(0.15 0.04 240)"; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.fillStyle = "oklch(0.9 0.14 80)";
-  for (const rx of [-6, 0, 6]) {
+  ctx.strokeStyle = "oklch(0.06 0.04 240)"; ctx.lineWidth = 2; ctx.stroke();
+  // gold rim studs
+  ctx.fillStyle = "oklch(0.92 0.16 80)";
+  for (const rx of [-9, -3, 3, 9]) {
     ctx.beginPath();
-    ctx.arc(rx, -1, 1, 0, Math.PI * 2);
+    ctx.arc(rx, -4, 1.2, 0, Math.PI * 2);
     ctx.fill();
   }
-  // emblem
-  ctx.fillStyle = "oklch(0.9 0.14 80)";
+  // large gold emblem — clear identity
+  ctx.shadowColor = "oklch(0.9 0.18 70)"; ctx.shadowBlur = 6;
+  ctx.fillStyle = "oklch(0.94 0.18 80)";
   ctx.beginPath();
-  ctx.moveTo(0, -1.5); ctx.lineTo(2.5, 2.5); ctx.lineTo(-2.5, 2.5);
+  ctx.moveTo(0, -3); ctx.lineTo(5, 4); ctx.lineTo(0, 10); ctx.lineTo(-5, 4);
   ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
   ctx.restore();
   // helm
   ctx.fillStyle = flash > 0 ? "oklch(0.98 0.02 260)" : "oklch(0.42 0.04 260)";
@@ -1806,25 +1878,38 @@ function drawBombGoblin(ctx: CanvasRenderingContext2D, e: Enemy, time: number, f
   ctx.fillStyle = flash > 0 ? "oklch(0.98 0.05 40)" : (armed ? "oklch(0.65 0.24 25)" : "oklch(0.5 0.15 55)");
   ctx.beginPath(); ctx.ellipse(0, 2, 7, 8, 0, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = "oklch(0.15 0.06 40)"; ctx.lineWidth = 1; ctx.stroke();
-  // bomb
+  // bomb — oversized, held above head so silhouette reads "bomber" instantly
   ctx.save();
-  ctx.translate(0, -5);
-  ctx.fillStyle = "oklch(0.13 0.02 260)";
-  ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "oklch(0.42 0.02 260)"; ctx.lineWidth = 0.6; ctx.stroke();
-  ctx.fillStyle = "oklch(0.42 0.03 260)";
-  ctx.beginPath(); ctx.arc(-1.5, -1.5, 1.4, 0, Math.PI * 2); ctx.fill();
-  // fuse
+  ctx.translate(0, -11);
+  // bomb shadow on body
+  ctx.fillStyle = "oklch(0 0 0 / 0.35)";
+  ctx.beginPath(); ctx.ellipse(1.5, 8, 8, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+  // main sphere
+  const bombGrd = ctx.createRadialGradient(-3, -3, 1, 0, 0, 9);
+  bombGrd.addColorStop(0, "oklch(0.32 0.02 260)");
+  bombGrd.addColorStop(1, "oklch(0.08 0.02 260)");
+  ctx.fillStyle = bombGrd;
+  ctx.beginPath(); ctx.arc(0, 0, 8.5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = armed ? "oklch(0.85 0.28 25 / 0.9)" : "oklch(0.55 0.02 260)";
+  ctx.lineWidth = 1.4; ctx.stroke();
+  // hilight
+  ctx.fillStyle = "oklch(0.6 0.02 260 / 0.7)";
+  ctx.beginPath(); ctx.arc(-3, -3, 2, 0, Math.PI * 2); ctx.fill();
+  // fuse cap
+  ctx.fillStyle = "oklch(0.4 0.03 260)";
+  ctx.fillRect(-1.6, -10, 3.2, 2.4);
+  // fuse rope
   const rate = armed ? 0.05 : 0.02;
   const pulse = 0.5 + Math.sin(time * rate) * 0.5;
-  const col = armed ? "oklch(0.75 0.28 25)" : "oklch(0.95 0.2 80)";
-  ctx.strokeStyle = "oklch(0.4 0.05 40)"; ctx.lineWidth = 0.9;
+  const col = armed ? "oklch(0.78 0.28 25)" : "oklch(0.95 0.2 80)";
+  ctx.strokeStyle = "oklch(0.42 0.05 40)"; ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.moveTo(0, -5); ctx.quadraticCurveTo(3, -8, 2, -10); ctx.stroke();
-  ctx.shadowColor = col; ctx.shadowBlur = 10 + pulse * 8;
+  ctx.moveTo(0, -10); ctx.quadraticCurveTo(5, -14, 3, -17); ctx.stroke();
+  // spark
+  ctx.shadowColor = col; ctx.shadowBlur = 14 + pulse * 10;
   ctx.fillStyle = col;
   ctx.beginPath();
-  ctx.arc(2, -10, 1.7 + pulse * (armed ? 1.6 : 0.7), 0, Math.PI * 2);
+  ctx.arc(3, -17, 2.2 + pulse * (armed ? 1.8 : 0.9), 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.restore();
