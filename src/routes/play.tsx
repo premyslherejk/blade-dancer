@@ -1618,7 +1618,7 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
   const sk = s.shake;
   const shx = (Math.random() - 0.5) * sk;
   const shy = (Math.random() - 0.5) * sk;
-  ctx.translate(shx, shy);
+  ctx.translate(shx, shy - s.cameraY);
 
   drawFloor(ctx, s);
   drawFloorProps(ctx, s);
@@ -1630,7 +1630,8 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
   grd.addColorStop(0, "oklch(0.85 0.15 60 / 0.18)");
   grd.addColorStop(1, "transparent");
   ctx.fillStyle = grd;
-  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  ctx.fillRect(0, s.cameraY, ARENA_W, ARENA_H);
+
 
   drawTrail(ctx, s);
   drawSlamTelegraphs(ctx, s);
