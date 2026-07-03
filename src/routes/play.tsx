@@ -921,6 +921,11 @@ function step(s: GameState, dtMsReal: number) {
   for (const e of s.enemies) {
     if (!e.alive) continue;
     if (e.hitFlash > 0) e.hitFlash -= dtMsReal;
+    if (e.frozen > 0) {
+      e.frozen -= dtMsReal;
+      // Frozen enemies do nothing — no movement, no attacks, no facing change
+      continue;
+    }
     const dx = s.player.pos.x - e.pos.x;
     const dy = s.player.pos.y - e.pos.y;
     const d = Math.hypot(dx, dy) || 1;
@@ -939,19 +944,19 @@ function step(s: GameState, dtMsReal: number) {
       e.facing = targetFacing;
     }
 
-    // Movement per type
+    // Movement per type — +65% speed boost across the board
     let speed = 0;
     switch (e.type) {
-      case "grunt": speed = 34; break;
-      case "brute": speed = 22; break;
-      case "archer": speed = d < 260 ? -34 : d > 360 ? 22 : 0; break;
-      case "shielder": speed = 26; break;
-      case "bomber": speed = e.fuse > 0 ? 10 : 52; break;
+      case "grunt": speed = 56; break;
+      case "brute": speed = 36; break;
+      case "archer": speed = d < 260 ? -56 : d > 360 ? 36 : 0; break;
+      case "shielder": speed = 43; break;
+      case "bomber": speed = e.fuse > 0 ? 17 : 86; break;
       case "boss": {
         const enraged = e.hp <= e.maxHp * 0.25;
         e.phase = enraged ? 1 : 0;
         // charging slam → freeze in place
-        speed = e.slamCharge > 0 ? 0 : (enraged ? 44 : 26);
+        speed = e.slamCharge > 0 ? 0 : (enraged ? 73 : 43);
         break;
       }
     }
