@@ -70,6 +70,7 @@ type LevelDef = {
   barrels: Vec[];
   spikes: Vec[];
   intro?: string;
+  levelH?: number; // custom vertical length (defaults to ARENA_H)
 };
 
 const OUTER: Wall[] = [
@@ -78,6 +79,14 @@ const OUTER: Wall[] = [
   { x: 0, y: 0, w: 20, h: ARENA_H },
   { x: ARENA_W - 20, y: 0, w: 20, h: ARENA_H },
 ];
+
+const outerFor = (h: number): Wall[] => [
+  { x: 0, y: 0, w: ARENA_W, h: 20 },
+  { x: 0, y: h - 20, w: ARENA_W, h: 20 },
+  { x: 0, y: 0, w: 20, h },
+  { x: ARENA_W - 20, y: 0, w: 20, h },
+];
+
 
 const LEVELS: LevelDef[] = [
   {
@@ -241,6 +250,88 @@ const LEVEL_BOSS: LevelDef = {
 
 LEVELS.push(LEVEL_IV, LEVEL_V, LEVEL_BOSS);
 
+/* Long Arena — a journey through connected combat sections */
+const LONG_H = 1950;
+const LEVEL_LONG: LevelDef = {
+  name: "VII · The Long March",
+  subtitle: "Deep into enemy territory",
+  intro: "A longer battlefield of connected arenas. The camera will follow you — advance section by section.",
+  levelH: LONG_H,
+  playerStart: { x: ARENA_W / 2, y: LONG_H - 90 },
+  walls: [
+    ...outerFor(LONG_H),
+    // Gate 1 — bamboo gate above entrance
+    { x: 20, y: 1760, w: 150, h: 18 },
+    { x: 270, y: 1760, w: 150, h: 18 },
+    // First combat cover
+    { x: 90, y: 1540, w: 80, h: 20 },
+    { x: 270, y: 1540, w: 80, h: 20 },
+    // Narrow corridor
+    { x: 90, y: 1240, w: 22, h: 240 },
+    { x: 328, y: 1240, w: 22, h: 240 },
+    // Gate 2 — into second arena
+    { x: 20, y: 1180, w: 130, h: 18 },
+    { x: 290, y: 1180, w: 130, h: 18 },
+    // Second arena pillars
+    { x: 130, y: 950, w: 22, h: 80 },
+    { x: 288, y: 950, w: 22, h: 80 },
+    // Bridge sides (narrow crossing)
+    { x: 20, y: 700, w: 130, h: 18 },
+    { x: 290, y: 700, w: 130, h: 18 },
+    { x: 20, y: 820, w: 90, h: 18 },
+    { x: 330, y: 820, w: 90, h: 18 },
+    // Final arena flanking columns
+    { x: 60, y: 400, w: 22, h: 120 },
+    { x: 358, y: 400, w: 22, h: 120 },
+    { x: 180, y: 460, w: 80, h: 20 },
+    // Exit gate
+    { x: 20, y: 240, w: 150, h: 18 },
+    { x: 270, y: 240, w: 150, h: 18 },
+  ],
+  enemies: [
+    // First combat encounter
+    { x: 120, y: 1660, type: "grunt" },
+    { x: 320, y: 1660, type: "grunt" },
+    { x: 220, y: 1580, type: "brute" },
+    // Corridor watchers
+    { x: 180, y: 1300, type: "archer" },
+    { x: 260, y: 1300, type: "archer" },
+    // Second arena
+    { x: 110, y: 1080, type: "shielder" },
+    { x: 330, y: 1080, type: "shielder" },
+    { x: 220, y: 1000, type: "bomber" },
+    { x: 220, y: 900, type: "archer" },
+    // Bridge ambush
+    { x: 150, y: 770, type: "grunt" },
+    { x: 290, y: 770, type: "grunt" },
+    { x: 220, y: 660, type: "bomber" },
+    // Final combat
+    { x: 130, y: 560, type: "shielder" },
+    { x: 310, y: 560, type: "shielder" },
+    { x: 80, y: 340, type: "archer" },
+    { x: 360, y: 340, type: "archer" },
+    { x: 220, y: 420, type: "brute" },
+    { x: 220, y: 300, type: "grunt" },
+  ],
+  barrels: [
+    { x: 220, y: 1700 },
+    { x: 220, y: 1240 },
+    { x: 100, y: 1000 },
+    { x: 340, y: 1000 },
+    { x: 220, y: 750 },
+    { x: 220, y: 480 },
+  ],
+  spikes: [
+    { x: 80, y: 1400 },
+    { x: 360, y: 1400 },
+    { x: 220, y: 860 },
+    { x: 220, y: 540 },
+  ],
+};
+
+LEVELS.push(LEVEL_LONG);
+
+
 
 
 function PlayPage() {
@@ -315,7 +406,7 @@ function PlayPage() {
       const rect = canvas.getBoundingClientRect();
       const scaleX = ARENA_W / rect.width;
       const scaleY = ARENA_H / rect.height;
-      return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+      return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY + state.cameraY };
     };
     const down = (e: PointerEvent) => {
       if (paused || victory || defeat || showTutorial) return;
@@ -809,11 +900,16 @@ type GameState = {
   props: Prop[];
   torches: Torch[];
   floorSeed: number;
+  levelH: number;
+  cameraY: number;
 };
+
 
 function createLevelState(idx: number, carryHp: number, carryGold: number, carryMana: number, carryPotions: { hp: number; mana: number }): GameState {
   const def = LEVELS[idx];
+  const levelH = def.levelH ?? ARENA_H;
   const enemies: Enemy[] = def.enemies.map((e, i) => mkEnemy(i + 1, e.x, e.y, e.type));
+
 
   const seed = (idx + 1) * 1337 + 42;
   const rng = mulberry32(seed);
@@ -841,10 +937,11 @@ function createLevelState(idx: number, carryHp: number, carryGold: number, carry
   // Restrict decorative props to a border band around the arena — keep the play area clean.
   const borderPad = 70; // width of decorated border ring
   const innerX0 = borderPad, innerX1 = ARENA_W - borderPad;
-  const innerY0 = borderPad, innerY1 = ARENA_H - borderPad;
+  const innerY0 = borderPad, innerY1 = levelH - borderPad;
   for (let i = 0; i < 400 && props.length < 70; i++) {
     const x = 14 + rng() * (ARENA_W - 28);
-    const y = 14 + rng() * (ARENA_H - 28);
+    const y = 14 + rng() * (levelH - 28);
+
     // Skip center stage — decorations belong at the edges
     if (x > innerX0 && x < innerX1 && y > innerY0 && y < innerY1) continue;
     if (isBlocked(x, y, 6)) continue;
@@ -856,9 +953,10 @@ function createLevelState(idx: number, carryHp: number, carryGold: number, carry
   const torches: Torch[] = [];
   for (const w of def.walls) {
     const outer =
-      w.x <= 0 || w.y <= 0 || w.x + w.w >= ARENA_W || w.y + w.h >= ARENA_H;
+      w.x <= 0 || w.y <= 0 || w.x + w.w >= ARENA_W || w.y + w.h >= levelH;
     if (outer) continue;
     const long = Math.max(w.w, w.h);
+
     if (long < 70) continue;
     // Place a torch at midpoint on the "top" edge (facing arena interior toward smaller y for horizontal walls)
     if (w.w >= w.h) {
@@ -912,6 +1010,9 @@ function createLevelState(idx: number, carryHp: number, carryGold: number, carry
     props,
     torches,
     floorSeed: seed,
+    levelH,
+    cameraY: Math.max(0, Math.min(levelH - ARENA_H, def.playerStart.y - ARENA_H * 0.55)),
+
   };
 }
 
@@ -963,6 +1064,16 @@ function step(s: GameState, dtMsReal: number) {
 
   s.shake *= Math.pow(0.001, dtReal);
   if (s.shake < 0.05) s.shake = 0;
+
+  // Camera — smoothly follow player (real time so slow-mo doesn't stutter it)
+  {
+    const maxCam = Math.max(0, s.levelH - ARENA_H);
+    const target = Math.max(0, Math.min(maxCam, s.player.pos.y - ARENA_H * 0.55));
+    // exponential smoothing; ~250ms half-life
+    const lerp = 1 - Math.pow(0.001, dtReal * 1.6);
+    s.cameraY += (target - s.cameraY) * lerp;
+  }
+
 
   if (s.player.invuln > 0) s.player.invuln -= dtMsReal;
 
@@ -1319,7 +1430,7 @@ function step(s: GameState, dtMsReal: number) {
   // Ambient atmosphere — embers and dust drifting through the arena
   if (Math.random() < 0.55) {
     s.particles.push({
-      pos: { x: Math.random() * ARENA_W, y: ARENA_H - 20 + Math.random() * 40 },
+      pos: { x: Math.random() * ARENA_W, y: s.cameraY + ARENA_H - 20 + Math.random() * 40 },
       vel: { x: (Math.random() - 0.5) * 12, y: -20 - Math.random() * 30 },
       life: 2200 + Math.random() * 1200,
       max: 2600,
@@ -1331,7 +1442,7 @@ function step(s: GameState, dtMsReal: number) {
   }
   if (Math.random() < 0.35) {
     s.particles.push({
-      pos: { x: Math.random() * ARENA_W, y: Math.random() * ARENA_H },
+      pos: { x: Math.random() * ARENA_W, y: s.cameraY + Math.random() * ARENA_H },
       vel: { x: (Math.random() - 0.5) * 8, y: (Math.random() - 0.5) * 6 },
       life: 1800,
       max: 1800,
@@ -1507,7 +1618,7 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
   const sk = s.shake;
   const shx = (Math.random() - 0.5) * sk;
   const shy = (Math.random() - 0.5) * sk;
-  ctx.translate(shx, shy);
+  ctx.translate(shx, shy - s.cameraY);
 
   drawFloor(ctx, s);
   drawFloorProps(ctx, s);
@@ -1519,7 +1630,8 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
   grd.addColorStop(0, "oklch(0.85 0.15 60 / 0.18)");
   grd.addColorStop(1, "transparent");
   ctx.fillStyle = grd;
-  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  ctx.fillRect(0, s.cameraY, ARENA_W, ARENA_H);
+
 
   drawTrail(ctx, s);
   drawSlamTelegraphs(ctx, s);
@@ -1550,17 +1662,17 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
   drawExplosions(ctx, s);
 
   if (!s.player.dashing && s.slowRealMs <= 0) {
-    const vg = ctx.createRadialGradient(
-      ARENA_W / 2, ARENA_H / 2, ARENA_W * 0.35,
-      ARENA_W / 2, ARENA_H / 2, ARENA_W * 0.8
-    );
+    const vcx = ARENA_W / 2;
+    const vcy = s.cameraY + ARENA_H / 2;
+    const vg = ctx.createRadialGradient(vcx, vcy, ARENA_W * 0.35, vcx, vcy, ARENA_W * 0.8);
     vg.addColorStop(0, "transparent");
     vg.addColorStop(1, "oklch(0.05 0.02 265 / 0.6)");
     ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+    ctx.fillRect(0, s.cameraY, ARENA_W, ARENA_H);
     ctx.fillStyle = "oklch(0.5 0.1 220 / 0.045)";
-    ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+    ctx.fillRect(0, s.cameraY, ARENA_W, ARENA_H);
   }
+
 
   ctx.restore();
 }
@@ -1568,12 +1680,13 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
 /* ---------- Environment ---------- */
 
 function drawFloor(ctx: CanvasRenderingContext2D, s: GameState) {
+  const camY = s.cameraY;
   // Deep pit backdrop
   ctx.fillStyle = "oklch(0.07 0.02 265)";
-  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  ctx.fillRect(0, camY, ARENA_W, ARENA_H);
 
   const cx = ARENA_W / 2;
-  const cy = ARENA_H / 2;
+  const cy = camY + ARENA_H / 2;
 
   // Warm overhead spotlight — big center pool of light, dramatic falloff
   const bg = ctx.createRadialGradient(cx, cy - 40, 20, cx, cy, Math.max(ARENA_W, ARENA_H) * 0.8);
@@ -1582,17 +1695,18 @@ function drawFloor(ctx: CanvasRenderingContext2D, s: GameState) {
   bg.addColorStop(0.75, "oklch(0.14 0.02 262)");
   bg.addColorStop(1, "oklch(0.06 0.02 262)");
   ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  ctx.fillRect(0, camY, ARENA_W, ARENA_H);
 
   // Isometric stone tile hint — diamond grid gives a subtle depth read
   ctx.save();
   ctx.strokeStyle = "oklch(0.05 0.01 262 / 0.32)";
   ctx.lineWidth = 1;
   const tile = 120;
-  ctx.translate(cx, cy);
+  // Anchor the tile pattern to the world (not the camera) so it scrolls with movement
+  ctx.translate(ARENA_W / 2, ARENA_H / 2);
   ctx.rotate(Math.PI / 4);
   ctx.beginPath();
-  const N = 14;
+  const N = 18;
   for (let i = -N; i <= N; i++) {
     ctx.moveTo(i * tile, -N * tile);
     ctx.lineTo(i * tile, N * tile);
@@ -1603,20 +1717,21 @@ function drawFloor(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.restore();
 
   // faint diagonal light streak — as if a shaft comes from top-left
-  const streak = ctx.createLinearGradient(0, 0, ARENA_W * 0.8, ARENA_H * 0.7);
+  const streak = ctx.createLinearGradient(0, camY, ARENA_W * 0.8, camY + ARENA_H * 0.7);
   streak.addColorStop(0, "oklch(0.9 0.1 70 / 0.06)");
   streak.addColorStop(0.5, "transparent");
   streak.addColorStop(1, "transparent");
   ctx.fillStyle = streak;
-  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  ctx.fillRect(0, camY, ARENA_W, ARENA_H);
 
   // Vignette — strong at edges, focuses attention on gameplay
   const vg = ctx.createRadialGradient(cx, cy, ARENA_W * 0.3, cx, cy, ARENA_W * 0.9);
   vg.addColorStop(0, "transparent");
   vg.addColorStop(1, "oklch(0.03 0.02 260 / 0.85)");
   ctx.fillStyle = vg;
-  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  ctx.fillRect(0, camY, ARENA_W, ARENA_H);
 }
+
 
 function drawFloorProps(ctx: CanvasRenderingContext2D, s: GameState) {
   for (const p of s.props) {
