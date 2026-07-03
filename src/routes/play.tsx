@@ -250,6 +250,88 @@ const LEVEL_BOSS: LevelDef = {
 
 LEVELS.push(LEVEL_IV, LEVEL_V, LEVEL_BOSS);
 
+/* Long Arena — a journey through connected combat sections */
+const LONG_H = 1950;
+const LEVEL_LONG: LevelDef = {
+  name: "VII · The Long March",
+  subtitle: "Deep into enemy territory",
+  intro: "A longer battlefield of connected arenas. The camera will follow you — advance section by section.",
+  levelH: LONG_H,
+  playerStart: { x: ARENA_W / 2, y: LONG_H - 90 },
+  walls: [
+    ...outerFor(LONG_H),
+    // Gate 1 — bamboo gate above entrance
+    { x: 20, y: 1760, w: 150, h: 18 },
+    { x: 270, y: 1760, w: 150, h: 18 },
+    // First combat cover
+    { x: 90, y: 1540, w: 80, h: 20 },
+    { x: 270, y: 1540, w: 80, h: 20 },
+    // Narrow corridor
+    { x: 90, y: 1240, w: 22, h: 240 },
+    { x: 328, y: 1240, w: 22, h: 240 },
+    // Gate 2 — into second arena
+    { x: 20, y: 1180, w: 130, h: 18 },
+    { x: 290, y: 1180, w: 130, h: 18 },
+    // Second arena pillars
+    { x: 130, y: 950, w: 22, h: 80 },
+    { x: 288, y: 950, w: 22, h: 80 },
+    // Bridge sides (narrow crossing)
+    { x: 20, y: 700, w: 130, h: 18 },
+    { x: 290, y: 700, w: 130, h: 18 },
+    { x: 20, y: 820, w: 90, h: 18 },
+    { x: 330, y: 820, w: 90, h: 18 },
+    // Final arena flanking columns
+    { x: 60, y: 400, w: 22, h: 120 },
+    { x: 358, y: 400, w: 22, h: 120 },
+    { x: 180, y: 460, w: 80, h: 20 },
+    // Exit gate
+    { x: 20, y: 240, w: 150, h: 18 },
+    { x: 270, y: 240, w: 150, h: 18 },
+  ],
+  enemies: [
+    // First combat encounter
+    { x: 120, y: 1660, type: "grunt" },
+    { x: 320, y: 1660, type: "grunt" },
+    { x: 220, y: 1580, type: "brute" },
+    // Corridor watchers
+    { x: 180, y: 1300, type: "archer" },
+    { x: 260, y: 1300, type: "archer" },
+    // Second arena
+    { x: 110, y: 1080, type: "shielder" },
+    { x: 330, y: 1080, type: "shielder" },
+    { x: 220, y: 1000, type: "bomber" },
+    { x: 220, y: 900, type: "archer" },
+    // Bridge ambush
+    { x: 150, y: 770, type: "grunt" },
+    { x: 290, y: 770, type: "grunt" },
+    { x: 220, y: 660, type: "bomber" },
+    // Final combat
+    { x: 130, y: 560, type: "shielder" },
+    { x: 310, y: 560, type: "shielder" },
+    { x: 80, y: 340, type: "archer" },
+    { x: 360, y: 340, type: "archer" },
+    { x: 220, y: 420, type: "brute" },
+    { x: 220, y: 300, type: "grunt" },
+  ],
+  barrels: [
+    { x: 220, y: 1700 },
+    { x: 220, y: 1240 },
+    { x: 100, y: 1000 },
+    { x: 340, y: 1000 },
+    { x: 220, y: 750 },
+    { x: 220, y: 480 },
+  ],
+  spikes: [
+    { x: 80, y: 1400 },
+    { x: 360, y: 1400 },
+    { x: 220, y: 860 },
+    { x: 220, y: 540 },
+  ],
+};
+
+LEVELS.push(LEVEL_LONG);
+
+
 
 
 function PlayPage() {
