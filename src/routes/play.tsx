@@ -20,6 +20,7 @@ type Enemy = {
   facing: number;
   shootCd: number;
   fuse: number; // bomber: >0 means armed, counts down to 0 then explodes
+  frozen: number; // ms remaining of Chrono Freeze
   // boss-only
   slamCd: number;
   slamCharge: number; // ms remaining on telegraph
@@ -34,9 +35,21 @@ type Slash = { a: Vec; b: Vec; life: number; max: number };
 type TrailDot = { pos: Vec; life: number };
 type Particle = { pos: Vec; vel: Vec; life: number; max: number; color: string; size: number; glow?: number; kind?: "spark" | "ember" | "dust" };
 type Explosion = { pos: Vec; life: number; max: number; radius: number };
-type Projectile = { pos: Vec; vel: Vec; life: number; radius: number };
+type Projectile = { pos: Vec; vel: Vec; life: number; radius: number; friendly?: boolean; damage?: number; rot?: number };
 type Prop = { kind: "moss" | "rock" | "grass" | "skull" | "crack" | "flower" | "pebble"; x: number; y: number; rot: number; size: number; seed: number };
 type Torch = { x: number; y: number; flicker: number };
+
+/* ---------- Skills ---------- */
+type SkillId = "void" | "freeze" | "storm";
+type SkillState = { cd: number; maxCd: number; cost: number };
+const SKILL_DEFS: Record<SkillId, { cost: number; maxCd: number; label: string }> = {
+  void:   { cost: 20, maxCd: 5000,  label: "Void Slash" },
+  freeze: { cost: 30, maxCd: 8000,  label: "Chrono Freeze" },
+  storm:  { cost: 45, maxCd: 10000, label: "Blade Storm" },
+};
+const MAX_MANA = 100;
+const MAX_HP = 3;
+const MANA_REGEN = 5; // per real second
 
 /* ---------- Constants ---------- */
 const ARENA_W = 440;
@@ -234,7 +247,10 @@ function PlayPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<GameState | null>(null);
   const [hp, setHp] = useState(3);
+  const [mana, setMana] = useState(MAX_MANA);
   const [gold, setGold] = useState(0);
+  const [potions, setPotions] = useState({ hp: 2, mana: 2 });
+  const [skillCds, setSkillCds] = useState<Record<SkillId, number>>({ void: 0, freeze: 0, storm: 0 });
   const [paused, setPaused] = useState(false);
   const [victory, setVictory] = useState(false);
   const [defeat, setDefeat] = useState(false);
@@ -242,6 +258,8 @@ function PlayPage() {
   const [showTutorial, setShowTutorial] = useState(true);
   const [carryGold, setCarryGold] = useState(0);
   const [carryHp, setCarryHp] = useState(3);
+  const [carryMana, setCarryMana] = useState(MAX_MANA);
+  const [carryPotions, setCarryPotions] = useState({ hp: 2, mana: 2 });
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
@@ -262,7 +280,7 @@ function PlayPage() {
     resize();
     window.addEventListener("resize", resize);
 
-    const state: GameState = createLevelState(levelIdx, carryHp, carryGold);
+    const state: GameState = createLevelState(levelIdx, carryHp, carryGold, carryMana, carryPotions);
     stateRef.current = state;
 
     let raf = 0;
@@ -274,7 +292,10 @@ function PlayPage() {
       if (!frozen) {
         step(state, dtMs);
         setHp(state.player.hp);
+        setMana(Math.round(state.player.mana));
         setGold(state.gold);
+        setPotions({ hp: state.potions.hp, mana: state.potions.mana });
+        setSkillCds({ void: state.skills.void.cd, freeze: state.skills.freeze.cd, storm: state.skills.storm.cd });
         if (state.player.hp <= 0 && !state.defeat) {
           state.defeat = true;
           setDefeat(true);
@@ -339,22 +360,24 @@ function PlayPage() {
       canvas.removeEventListener("pointerup", up);
       canvas.removeEventListener("pointercancel", up);
     };
-  }, [paused, victory, defeat, levelIdx, showTutorial, carryHp, carryGold]);
+  }, [paused, victory, defeat, levelIdx, showTutorial, carryHp, carryGold, carryMana, carryPotions]);
 
   const restartLevel = () => {
     setDefeat(false);
     setVictory(false);
     setPaused(false);
-    // rebuild via effect dependency change
     setCarryHp(3);
+    setCarryMana(MAX_MANA);
+    setCarryPotions({ hp: 2, mana: 2 });
     setCarryGold(gold);
   };
 
   const nextLevel = () => {
     const hasNext = levelIdx < LEVELS.length - 1;
     if (!hasNext) {
-      // full clear — reset to level 0
       setCarryHp(3);
+      setCarryMana(MAX_MANA);
+      setCarryPotions({ hp: 2, mana: 2 });
       setCarryGold(0);
       setLevelIdx(0);
       setVictory(false);
@@ -364,6 +387,9 @@ function PlayPage() {
       return;
     }
     setCarryHp(Math.max(1, hp));
+    setCarryMana(mana);
+    // grant +1 of each potion between levels
+    setCarryPotions({ hp: Math.min(3, potions.hp + 1), mana: Math.min(3, potions.mana + 1) });
     setCarryGold(gold);
     const next = levelIdx + 1;
     setLevelIdx(next);
@@ -371,6 +397,34 @@ function PlayPage() {
     setDefeat(false);
     setPaused(false);
     if (LEVELS[next]?.intro) setShowTutorial(true);
+  };
+
+  const usePotion = (kind: "hp" | "mana") => {
+    const st = stateRef.current;
+    if (!st || paused || victory || defeat || showTutorial) return;
+    if (st.potions[kind] <= 0) return;
+    if (kind === "hp") {
+      if (st.player.hp >= MAX_HP) return;
+      st.potions.hp -= 1;
+      st.player.hp = Math.min(MAX_HP, st.player.hp + 1);
+      spawnHealVfx(st, st.player.pos, "hp");
+    } else {
+      if (st.player.mana >= MAX_MANA) return;
+      st.potions.mana -= 1;
+      st.player.mana = Math.min(MAX_MANA, st.player.mana + 50);
+      spawnHealVfx(st, st.player.pos, "mana");
+    }
+  };
+
+  const castSkill = (id: SkillId) => {
+    const st = stateRef.current;
+    if (!st || paused || victory || defeat || showTutorial) return;
+    const sk = st.skills[id];
+    if (sk.cd > 0) return;
+    if (st.player.mana < sk.cost) return;
+    st.player.mana -= sk.cost;
+    sk.cd = sk.maxCd;
+    activateSkill(st, id);
   };
 
   const current = LEVELS[levelIdx];
@@ -388,16 +442,36 @@ function PlayPage() {
           style={{ display: "block" }}
         />
 
-        {/* HUD */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-4 flex items-start justify-between pointer-events-none">
-          <div className="flex items-center gap-2 pointer-events-auto">
+        {/* HUD — top */}
+        <div className="absolute top-0 left-0 right-0 z-10 px-3 pt-3 flex items-start justify-between pointer-events-none">
+          <div className="flex flex-col gap-1.5 pointer-events-auto">
             <div
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border"
               style={{ background: "oklch(0.15 0.03 265 / 0.75)", borderColor: "var(--border)", backdropFilter: "blur(8px)" }}
             >
-              {Array.from({ length: 3 }).map((_, i) => (
+              {Array.from({ length: MAX_HP }).map((_, i) => (
                 <HeartIcon key={i} filled={i < hp} />
               ))}
+            </div>
+            {/* Mana bar */}
+            <div
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border"
+              style={{ background: "oklch(0.15 0.03 265 / 0.75)", borderColor: "var(--border)", backdropFilter: "blur(8px)" }}
+            >
+              <ManaDropIcon />
+              <div className="relative w-24 h-2 rounded-full overflow-hidden" style={{ background: "oklch(0.22 0.05 260 / 0.9)", boxShadow: "inset 0 0 4px oklch(0 0 0 / 0.5)" }}>
+                <div
+                  className="absolute inset-y-0 left-0 transition-[width] duration-150"
+                  style={{
+                    width: `${(mana / MAX_MANA) * 100}%`,
+                    background: "linear-gradient(90deg, oklch(0.55 0.22 260), oklch(0.82 0.19 230))",
+                    boxShadow: "0 0 8px oklch(0.75 0.22 250 / 0.8)",
+                  }}
+                />
+              </div>
+              <span className="font-display text-[0.65rem] tracking-widest tabular-nums" style={{ color: "oklch(0.85 0.14 240)" }}>
+                {Math.round(mana)}
+              </span>
             </div>
           </div>
 
@@ -435,14 +509,38 @@ function PlayPage() {
           </div>
         </div>
 
-        {/* Tactical hint */}
+        {/* Bottom action bar — consumables (left) + skills (right) */}
         {!showTutorial && !victory && !defeat && !paused && (
-          <div className="absolute bottom-6 left-0 right-0 z-10 text-center pointer-events-none">
-            <div
-              className="inline-block px-4 py-2 rounded-full text-[0.65rem] tracking-[0.4em] uppercase"
-              style={{ background: "oklch(0.15 0.03 265 / 0.6)", color: "var(--muted-foreground)", backdropFilter: "blur(6px)", border: "1px solid var(--border)" }}
-            >
-              Drag to aim &nbsp;•&nbsp; Release to dash
+          <div className="absolute bottom-0 left-0 right-0 z-10 px-3 pb-3 flex items-end justify-between pointer-events-none">
+            {/* Consumables — bottom left */}
+            <div className="flex items-end gap-2 pointer-events-auto">
+              <PotionSlot
+                kind="hp"
+                count={potions.hp}
+                disabled={potions.hp <= 0 || hp >= MAX_HP}
+                onUse={() => usePotion("hp")}
+              />
+              <PotionSlot
+                kind="mana"
+                count={potions.mana}
+                disabled={potions.mana <= 0 || mana >= MAX_MANA}
+                onUse={() => usePotion("mana")}
+              />
+            </div>
+
+            {/* Skills — bottom right */}
+            <div className="flex items-end gap-2 pointer-events-auto">
+              {(["void", "freeze", "storm"] as SkillId[]).map((id) => (
+                <SkillButton
+                  key={id}
+                  id={id}
+                  cd={skillCds[id]}
+                  maxCd={SKILL_DEFS[id].maxCd}
+                  cost={SKILL_DEFS[id].cost}
+                  mana={mana}
+                  onCast={() => castSkill(id)}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -549,12 +647,135 @@ function HeartIcon({ filled }: { filled: boolean }) {
   );
 }
 
+function ManaDropIcon() {
+  return (
+    <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
+      <path d="M7 1 C 3 6, 1 9, 1 11.5 A 6 6 0 0 0 13 11.5 C 13 9, 11 6, 7 1 Z"
+        fill="oklch(0.65 0.22 250)" stroke="oklch(0.9 0.15 240)" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function PotionSlot({ kind, count, disabled, onUse }: {
+  kind: "hp" | "mana"; count: number; disabled: boolean; onUse: () => void;
+}) {
+  const isHp = kind === "hp";
+  const liquid = isHp ? "linear-gradient(180deg, oklch(0.75 0.24 25), oklch(0.5 0.24 20))" : "linear-gradient(180deg, oklch(0.78 0.19 250), oklch(0.5 0.22 260))";
+  const glow = isHp ? "oklch(0.7 0.25 25 / 0.55)" : "oklch(0.7 0.22 250 / 0.55)";
+  const rim = isHp ? "oklch(0.85 0.2 25)" : "oklch(0.85 0.18 245)";
+  return (
+    <button
+      onClick={onUse}
+      disabled={disabled}
+      className="relative w-14 h-14 rounded-xl border flex items-end justify-center overflow-hidden transition active:scale-95 disabled:opacity-40"
+      style={{
+        background: "oklch(0.14 0.03 265 / 0.85)",
+        borderColor: disabled ? "var(--border)" : rim,
+        backdropFilter: "blur(8px)",
+        boxShadow: disabled ? "none" : `0 0 14px ${glow}, inset 0 0 12px oklch(0 0 0 / 0.4)`,
+      }}
+      aria-label={isHp ? "Health Potion" : "Mana Potion"}
+    >
+      <div className="relative w-7 h-9 mb-1">
+        <div className="absolute left-1/2 -translate-x-1/2 -top-1 w-3 h-2 rounded-sm" style={{ background: "oklch(0.35 0.05 40)" }} />
+        <div className="absolute inset-x-0 top-1 bottom-0 rounded-b-2xl rounded-t overflow-hidden border" style={{ borderColor: "oklch(0.9 0.05 260 / 0.4)" }}>
+          <div className="absolute inset-0" style={{ background: liquid }} />
+          <div className="absolute inset-x-1 top-1 h-1.5 rounded-full" style={{ background: "oklch(1 0 0 / 0.4)" }} />
+        </div>
+      </div>
+      <div
+        className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full flex items-center justify-center text-[0.6rem] font-bold tabular-nums border"
+        style={{ background: "oklch(0.14 0.03 265)", color: "var(--foreground)", borderColor: rim }}
+      >
+        {count}
+      </div>
+    </button>
+  );
+}
+
+function SkillButton({ id, cd, maxCd, cost, mana, onCast }: {
+  id: SkillId; cd: number; maxCd: number; cost: number; mana: number; onCast: () => void;
+}) {
+  const ready = cd <= 0 && mana >= cost;
+  const cdPct = cd / maxCd;
+  const tint =
+    id === "void" ? { c: "oklch(0.72 0.24 305)", g: "oklch(0.6 0.28 300 / 0.6)" } :
+    id === "freeze" ? { c: "oklch(0.85 0.15 220)", g: "oklch(0.7 0.2 220 / 0.6)" } :
+    { c: "oklch(0.85 0.15 200)", g: "oklch(0.7 0.22 210 / 0.6)" };
+  return (
+    <button
+      onClick={onCast}
+      disabled={!ready}
+      className="relative w-16 h-16 rounded-2xl border flex items-center justify-center overflow-hidden transition active:scale-95"
+      style={{
+        background: "oklch(0.14 0.03 265 / 0.9)",
+        borderColor: ready ? tint.c : "var(--border)",
+        backdropFilter: "blur(8px)",
+        boxShadow: ready ? `0 0 16px ${tint.g}, inset 0 0 14px oklch(0 0 0 / 0.4)` : "inset 0 0 10px oklch(0 0 0 / 0.5)",
+        opacity: mana < cost && cd <= 0 ? 0.6 : 1,
+      }}
+      aria-label={SKILL_DEFS[id].label}
+    >
+      <SkillIcon id={id} color={ready ? tint.c : "oklch(0.5 0.05 260)"} />
+      {cd > 0 && (
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ background: `conic-gradient(oklch(0 0 0 / 0.75) ${cdPct * 360}deg, transparent 0)` }}
+        >
+          <span className="font-display text-lg tabular-nums" style={{ color: "oklch(0.95 0.02 260)" }}>
+            {(cd / 1000).toFixed(1)}
+          </span>
+        </div>
+      )}
+      <div
+        className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded-full text-[0.55rem] font-bold tracking-wider border"
+        style={{
+          background: "oklch(0.14 0.03 265)",
+          color: mana >= cost ? "oklch(0.85 0.14 240)" : "oklch(0.6 0.05 260)",
+          borderColor: mana >= cost ? "oklch(0.6 0.2 250 / 0.6)" : "var(--border)",
+        }}
+      >
+        {cost}
+      </div>
+    </button>
+  );
+}
+
+function SkillIcon({ id, color }: { id: SkillId; color: string }) {
+  if (id === "void") {
+    return (
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+        <path d="M6 6 L24 24 M24 6 L6 24" />
+        <circle cx="15" cy="15" r="4" fill={color} opacity="0.35" />
+      </svg>
+    );
+  }
+  if (id === "freeze") {
+    return (
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+        <path d="M15 3 L15 27 M4 9 L26 21 M4 21 L26 9" />
+        <path d="M15 3 L12 6 M15 3 L18 6 M15 27 L12 24 M15 27 L18 24" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+      <path d="M15 4 A 11 11 0 0 1 26 15" />
+      <path d="M15 26 A 11 11 0 0 1 4 15" />
+      <circle cx="15" cy="15" r="2.5" fill={color} />
+    </svg>
+  );
+}
+
+
+
 /* ================= GAME STATE ================= */
 
 type GameState = {
   player: {
     pos: Vec;
     hp: number;
+    mana: number;
     dashing: boolean;
     dashDir: Vec;
     dashTarget: Vec;
@@ -574,6 +795,9 @@ type GameState = {
   explosions: Explosion[];
   projectiles: Projectile[];
   gold: number;
+  potions: { hp: number; mana: number };
+  skills: Record<SkillId, SkillState>;
+  freezePulse: number; // ms remaining of overall freeze visual pulse
   aiming: boolean;
   aimStart: Vec;
   aimCurrent: Vec;
@@ -587,7 +811,7 @@ type GameState = {
   floorSeed: number;
 };
 
-function createLevelState(idx: number, carryHp: number, carryGold: number): GameState {
+function createLevelState(idx: number, carryHp: number, carryGold: number, carryMana: number, carryPotions: { hp: number; mana: number }): GameState {
   const def = LEVELS[idx];
   const enemies: Enemy[] = def.enemies.map((e, i) => mkEnemy(i + 1, e.x, e.y, e.type));
 
@@ -650,6 +874,7 @@ function createLevelState(idx: number, carryHp: number, carryGold: number): Game
     player: {
       pos: { ...def.playerStart },
       hp: carryHp,
+      mana: carryMana,
       dashing: false,
       dashDir: { x: 0, y: -1 },
       dashTarget: { x: 0, y: 0 },
@@ -669,6 +894,13 @@ function createLevelState(idx: number, carryHp: number, carryGold: number): Game
     explosions: [],
     projectiles: [],
     gold: carryGold,
+    potions: { hp: carryPotions.hp, mana: carryPotions.mana },
+    skills: {
+      void:   { cd: 0, maxCd: SKILL_DEFS.void.maxCd,   cost: SKILL_DEFS.void.cost },
+      freeze: { cd: 0, maxCd: SKILL_DEFS.freeze.maxCd, cost: SKILL_DEFS.freeze.cost },
+      storm:  { cd: 0, maxCd: SKILL_DEFS.storm.maxCd,  cost: SKILL_DEFS.storm.cost },
+    },
+    freezePulse: 0,
     aiming: false,
     aimStart: { x: 0, y: 0 },
     aimCurrent: { x: 0, y: 0 },
@@ -697,6 +929,7 @@ function mkEnemy(id: number, x: number, y: number, type: EnemyType): Enemy {
     facing: Math.PI / 2,
     shootCd: type === "archer" ? 1600 + Math.random() * 900 : 0,
     fuse: 0,
+    frozen: 0,
     slamCd: 5200,
     slamCharge: 0,
     slamPos: { x, y },
@@ -732,6 +965,14 @@ function step(s: GameState, dtMsReal: number) {
   if (s.shake < 0.05) s.shake = 0;
 
   if (s.player.invuln > 0) s.player.invuln -= dtMsReal;
+
+  // Mana regen (real time, always ticks)
+  s.player.mana = Math.min(MAX_MANA, s.player.mana + MANA_REGEN * dtReal);
+  // Skill cooldowns (real time)
+  for (const id of ["void", "freeze", "storm"] as SkillId[]) {
+    if (s.skills[id].cd > 0) s.skills[id].cd = Math.max(0, s.skills[id].cd - dtMsReal);
+  }
+  if (s.freezePulse > 0) s.freezePulse -= dtMsReal;
 
   if (!s.player.dashing) s.player.plantedTimer += dtReal;
   else s.player.plantedTimer = 0;
@@ -854,6 +1095,11 @@ function step(s: GameState, dtMsReal: number) {
   for (const e of s.enemies) {
     if (!e.alive) continue;
     if (e.hitFlash > 0) e.hitFlash -= dtMsReal;
+    if (e.frozen > 0) {
+      e.frozen -= dtMsReal;
+      // Frozen enemies do nothing — no movement, no attacks, no facing change
+      continue;
+    }
     const dx = s.player.pos.x - e.pos.x;
     const dy = s.player.pos.y - e.pos.y;
     const d = Math.hypot(dx, dy) || 1;
@@ -872,19 +1118,19 @@ function step(s: GameState, dtMsReal: number) {
       e.facing = targetFacing;
     }
 
-    // Movement per type
+    // Movement per type — +65% speed boost across the board
     let speed = 0;
     switch (e.type) {
-      case "grunt": speed = 34; break;
-      case "brute": speed = 22; break;
-      case "archer": speed = d < 260 ? -34 : d > 360 ? 22 : 0; break;
-      case "shielder": speed = 26; break;
-      case "bomber": speed = e.fuse > 0 ? 10 : 52; break;
+      case "grunt": speed = 56; break;
+      case "brute": speed = 36; break;
+      case "archer": speed = d < 260 ? -56 : d > 360 ? 36 : 0; break;
+      case "shielder": speed = 43; break;
+      case "bomber": speed = e.fuse > 0 ? 17 : 86; break;
       case "boss": {
         const enraged = e.hp <= e.maxHp * 0.25;
         e.phase = enraged ? 1 : 0;
         // charging slam → freeze in place
-        speed = e.slamCharge > 0 ? 0 : (enraged ? 44 : 26);
+        speed = e.slamCharge > 0 ? 0 : (enraged ? 73 : 43);
         break;
       }
     }
@@ -988,27 +1234,47 @@ function step(s: GameState, dtMsReal: number) {
   }
 
 
-  // Projectiles (real time — they visibly slow during aim thanks to global scale not applied; but we want them to slow too)
+  // Projectiles
   for (const pr of s.projectiles) {
     pr.pos.x += pr.vel.x * dt;
     pr.pos.y += pr.vel.y * dt;
     pr.life -= dtMsReal;
-    // hit walls
-    for (const w of s.walls) {
-      if (pr.pos.x > w.x && pr.pos.x < w.x + w.w && pr.pos.y > w.y && pr.pos.y < w.y + w.h) {
-        pr.life = 0;
-        for (let i = 0; i < 6; i++) {
-          s.particles.push({
-            pos: { ...pr.pos },
-            vel: { x: (Math.random() - 0.5) * 200, y: (Math.random() - 0.5) * 200 },
-            life: 300, max: 300, color: "oklch(0.85 0.18 55)", size: 1.5,
-          });
+    if (pr.rot !== undefined) pr.rot += dt * 22;
+    // hit walls (skip for friendly Blade Storm — it slices through walls, sword magic)
+    if (!pr.friendly) {
+      for (const w of s.walls) {
+        if (pr.pos.x > w.x && pr.pos.x < w.x + w.w && pr.pos.y > w.y && pr.pos.y < w.y + w.h) {
+          pr.life = 0;
+          for (let i = 0; i < 6; i++) {
+            s.particles.push({
+              pos: { ...pr.pos },
+              vel: { x: (Math.random() - 0.5) * 200, y: (Math.random() - 0.5) * 200 },
+              life: 300, max: 300, color: "oklch(0.85 0.18 55)", size: 1.5,
+            });
+          }
+          break;
         }
-        break;
       }
     }
-    // hit player
-    if (pr.life > 0 && s.player.invuln <= 0 && dist(pr.pos, s.player.pos) < PLAYER_R + pr.radius) {
+    if (pr.friendly) {
+      // hit enemies
+      for (const e of s.enemies) {
+        if (!e.alive) continue;
+        if (dist(pr.pos, e.pos) < enemyRadius(e.type) + pr.radius) {
+          e.hp -= pr.damage ?? 1;
+          e.hitFlash = 200;
+          spawnHitBurst(s, e.pos);
+          if (e.hp <= 0) {
+            e.alive = false;
+            s.gold += goldFor(e.type);
+            spawnDeathBurst(s, e.pos);
+            if (e.type === "bomber") explodeAt(s, e.pos, 78, true);
+          }
+          pr.life = 0;
+          break;
+        }
+      }
+    } else if (pr.life > 0 && s.player.invuln <= 0 && dist(pr.pos, s.player.pos) < PLAYER_R + pr.radius) {
       pr.life = 0;
       s.player.hp = Math.max(0, s.player.hp - 1);
       s.player.invuln = 900;
@@ -1148,6 +1414,85 @@ function explodeAt(s: GameState, at: Vec, radius: number, damagePlayer: boolean)
   if (damagePlayer && dist(s.player.pos, at) < radius && s.player.invuln <= 0) {
     s.player.hp = Math.max(0, s.player.hp - 1);
     s.player.invuln = 900;
+  }
+}
+
+/* ================= SKILLS ================= */
+
+function spawnHealVfx(s: GameState, at: Vec, kind: "hp" | "mana") {
+  const col = kind === "hp" ? "oklch(0.75 0.22 20)" : "oklch(0.78 0.19 250)";
+  for (let i = 0; i < 22; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 40 + Math.random() * 90;
+    s.particles.push({
+      pos: { x: at.x, y: at.y + 10 },
+      vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp - 80 },
+      life: 700, max: 700, color: col, size: 2 + Math.random() * 2, glow: 14,
+    });
+  }
+}
+
+function activateSkill(s: GameState, id: SkillId) {
+  const p = s.player.pos;
+  if (id === "void") {
+    // Void Slash — 110px damaging burst around player, ignores shielder shield.
+    const R = 110;
+    s.explosions.push({ pos: { ...p }, life: 380, max: 380, radius: R });
+    s.shake = Math.max(s.shake, 14);
+    for (let i = 0; i < 60; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 180 + Math.random() * 340;
+      s.particles.push({
+        pos: { ...p }, vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
+        life: 550, max: 550,
+        color: Math.random() > 0.5 ? "oklch(0.75 0.24 300)" : "oklch(0.92 0.16 280)",
+        size: 2 + Math.random() * 3, glow: 12,
+      });
+    }
+    for (const e of s.enemies) {
+      if (!e.alive) continue;
+      if (dist(e.pos, p) < R) {
+        e.hp -= 2;
+        e.hitFlash = 240;
+        spawnHitBurst(s, e.pos);
+        if (e.hp <= 0) {
+          e.alive = false;
+          s.gold += goldFor(e.type);
+          spawnDeathBurst(s, e.pos);
+        }
+      }
+    }
+  } else if (id === "freeze") {
+    // Chrono Freeze — stops all enemies (boss only 40%) for 2500ms
+    s.freezePulse = 600;
+    s.shake = Math.max(s.shake, 6);
+    for (const e of s.enemies) {
+      if (!e.alive) continue;
+      e.frozen = Math.max(e.frozen, e.type === "boss" ? 1000 : 2500);
+    }
+    for (let i = 0; i < 80; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 40 + Math.random() * 260;
+      s.particles.push({
+        pos: { x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r },
+        vel: { x: 0, y: -20 - Math.random() * 30 },
+        life: 900, max: 900,
+        color: "oklch(0.9 0.13 220)", size: 1 + Math.random() * 2, glow: 10,
+      });
+    }
+  } else if (id === "storm") {
+    // Blade Storm — 8 spinning blades fly outward, pierce walls, damage enemies.
+    const count = 8;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + Math.random() * 0.05;
+      const sp = 380;
+      s.projectiles.push({
+        pos: { ...p },
+        vel: { x: Math.cos(a) * sp, y: Math.sin(a) * sp },
+        life: 1600, radius: 10, friendly: true, damage: 2, rot: a,
+      });
+    }
+    s.shake = Math.max(s.shake, 8);
   }
 }
 
@@ -1663,6 +2008,31 @@ function drawSlamTelegraphs(ctx: CanvasRenderingContext2D, s: GameState) {
 
 function drawProjectiles(ctx: CanvasRenderingContext2D, s: GameState) {
   for (const pr of s.projectiles) {
+    if (pr.friendly) {
+      // Blade Storm — spinning glowing crescent blade
+      ctx.save();
+      ctx.translate(pr.pos.x, pr.pos.y);
+      ctx.rotate(pr.rot ?? 0);
+      ctx.shadowColor = "oklch(0.85 0.18 210)";
+      ctx.shadowBlur = 18;
+      // outer glow ring
+      ctx.strokeStyle = "oklch(0.95 0.15 200 / 0.9)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, -Math.PI * 0.85, Math.PI * 0.85);
+      ctx.stroke();
+      ctx.strokeStyle = "oklch(0.75 0.24 200 / 0.7)";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, -Math.PI * 0.7, Math.PI * 0.7);
+      ctx.stroke();
+      // core
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "oklch(0.98 0.08 200)";
+      ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      continue;
+    }
     ctx.save();
     ctx.translate(pr.pos.x, pr.pos.y);
     const ang = Math.atan2(pr.vel.y, pr.vel.x);
