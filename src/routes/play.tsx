@@ -1662,17 +1662,17 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
   drawExplosions(ctx, s);
 
   if (!s.player.dashing && s.slowRealMs <= 0) {
-    const vg = ctx.createRadialGradient(
-      ARENA_W / 2, ARENA_H / 2, ARENA_W * 0.35,
-      ARENA_W / 2, ARENA_H / 2, ARENA_W * 0.8
-    );
+    const vcx = ARENA_W / 2;
+    const vcy = s.cameraY + ARENA_H / 2;
+    const vg = ctx.createRadialGradient(vcx, vcy, ARENA_W * 0.35, vcx, vcy, ARENA_W * 0.8);
     vg.addColorStop(0, "transparent");
     vg.addColorStop(1, "oklch(0.05 0.02 265 / 0.6)");
     ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+    ctx.fillRect(0, s.cameraY, ARENA_W, ARENA_H);
     ctx.fillStyle = "oklch(0.5 0.1 220 / 0.045)";
-    ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+    ctx.fillRect(0, s.cameraY, ARENA_W, ARENA_H);
   }
+
 
   ctx.restore();
 }
