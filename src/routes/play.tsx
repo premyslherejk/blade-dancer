@@ -1189,37 +1189,52 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
 /* ---------- Environment ---------- */
 
 function drawFloor(ctx: CanvasRenderingContext2D, s: GameState) {
-  // Deep border backdrop
-  ctx.fillStyle = "oklch(0.09 0.02 265)";
+  // Deep pit backdrop
+  ctx.fillStyle = "oklch(0.07 0.02 265)";
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 
-  // Clean stage: soft radial gradient makes center brightest, corners darker
   const cx = ARENA_W / 2;
   const cy = ARENA_H / 2;
-  const bg = ctx.createRadialGradient(cx, cy, 40, cx, cy, Math.max(ARENA_W, ARENA_H) * 0.75);
-  bg.addColorStop(0, "oklch(0.24 0.02 262)");
-  bg.addColorStop(0.65, "oklch(0.18 0.02 262)");
-  bg.addColorStop(1, "oklch(0.1 0.02 262)");
+
+  // Warm overhead spotlight — big center pool of light, dramatic falloff
+  const bg = ctx.createRadialGradient(cx, cy - 40, 20, cx, cy, Math.max(ARENA_W, ARENA_H) * 0.8);
+  bg.addColorStop(0, "oklch(0.34 0.04 70)");
+  bg.addColorStop(0.35, "oklch(0.24 0.03 262)");
+  bg.addColorStop(0.75, "oklch(0.14 0.02 262)");
+  bg.addColorStop(1, "oklch(0.06 0.02 262)");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 
-  // Very subtle large-tile seams (calm, not busy)
-  ctx.strokeStyle = "oklch(0.06 0.01 262 / 0.35)";
+  // Isometric stone tile hint — diamond grid gives a subtle depth read
+  ctx.save();
+  ctx.strokeStyle = "oklch(0.05 0.01 262 / 0.32)";
   ctx.lineWidth = 1;
-  const tile = 110;
+  const tile = 120;
+  ctx.translate(cx, cy);
+  ctx.rotate(Math.PI / 4);
   ctx.beginPath();
-  for (let x = tile; x < ARENA_W; x += tile) {
-    ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, ARENA_H);
-  }
-  for (let y = tile; y < ARENA_H; y += tile) {
-    ctx.moveTo(0, y + 0.5); ctx.lineTo(ARENA_W, y + 0.5);
+  const N = 14;
+  for (let i = -N; i <= N; i++) {
+    ctx.moveTo(i * tile, -N * tile);
+    ctx.lineTo(i * tile, N * tile);
+    ctx.moveTo(-N * tile, i * tile);
+    ctx.lineTo(N * tile, i * tile);
   }
   ctx.stroke();
+  ctx.restore();
 
-  // Vignette — pushes edges darker, focuses attention on gameplay
-  const vg = ctx.createRadialGradient(cx, cy, ARENA_W * 0.35, cx, cy, ARENA_W * 0.85);
+  // faint diagonal light streak — as if a shaft comes from top-left
+  const streak = ctx.createLinearGradient(0, 0, ARENA_W * 0.8, ARENA_H * 0.7);
+  streak.addColorStop(0, "oklch(0.9 0.1 70 / 0.06)");
+  streak.addColorStop(0.5, "transparent");
+  streak.addColorStop(1, "transparent");
+  ctx.fillStyle = streak;
+  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+
+  // Vignette — strong at edges, focuses attention on gameplay
+  const vg = ctx.createRadialGradient(cx, cy, ARENA_W * 0.3, cx, cy, ARENA_W * 0.9);
   vg.addColorStop(0, "transparent");
-  vg.addColorStop(1, "oklch(0.04 0.02 260 / 0.7)");
+  vg.addColorStop(1, "oklch(0.03 0.02 260 / 0.85)");
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, ARENA_W, ARENA_H);
 }
