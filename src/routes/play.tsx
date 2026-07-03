@@ -667,6 +667,7 @@ function createLevelState(idx: number, carryHp: number, carryGold: number, carry
     player: {
       pos: { ...def.playerStart },
       hp: carryHp,
+      mana: carryMana,
       dashing: false,
       dashDir: { x: 0, y: -1 },
       dashTarget: { x: 0, y: 0 },
@@ -686,6 +687,13 @@ function createLevelState(idx: number, carryHp: number, carryGold: number, carry
     explosions: [],
     projectiles: [],
     gold: carryGold,
+    potions: { hp: carryPotions.hp, mana: carryPotions.mana },
+    skills: {
+      void:   { cd: 0, maxCd: SKILL_DEFS.void.maxCd,   cost: SKILL_DEFS.void.cost },
+      freeze: { cd: 0, maxCd: SKILL_DEFS.freeze.maxCd, cost: SKILL_DEFS.freeze.cost },
+      storm:  { cd: 0, maxCd: SKILL_DEFS.storm.maxCd,  cost: SKILL_DEFS.storm.cost },
+    },
+    freezePulse: 0,
     aiming: false,
     aimStart: { x: 0, y: 0 },
     aimCurrent: { x: 0, y: 0 },
