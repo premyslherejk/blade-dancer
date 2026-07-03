@@ -1496,56 +1496,76 @@ function drawSpikes(ctx: CanvasRenderingContext2D, s: GameState) {
   }
 }
 
-function drawBarrels(ctx: CanvasRenderingContext2D, s: GameState) {
-  for (const b of s.barrels) {
-    if (!b.alive) continue;
-    ctx.save();
-    ctx.translate(b.pos.x, b.pos.y);
-    // strong contact shadow
-    ctx.fillStyle = "oklch(0 0 0 / 0.65)";
+function drawBarrel(ctx: CanvasRenderingContext2D, b: { pos: { x: number; y: number }; radius: number; alive: boolean }, time: number) {
+  const R = b.radius;
+  const H = 26;
+  ctx.save();
+  ctx.translate(b.pos.x, b.pos.y);
+
+  ctx.fillStyle = "oklch(0 0 0 / 0.6)";
+  ctx.beginPath();
+  ctx.ellipse(4, R + 2, R + 4, (R + 4) * 0.42, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const rim = ctx.createRadialGradient(0, R, R, 0, R, R + 14);
+  rim.addColorStop(0, "oklch(0.75 0.22 45 / 0.4)");
+  rim.addColorStop(1, "transparent");
+  ctx.fillStyle = rim;
+  ctx.beginPath(); ctx.ellipse(0, R, R + 14, (R + 14) * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+
+  const side = ctx.createLinearGradient(-R, 0, R, 0);
+  side.addColorStop(0, "oklch(0.22 0.1 30)");
+  side.addColorStop(0.5, "oklch(0.6 0.19 50)");
+  side.addColorStop(1, "oklch(0.22 0.1 30)");
+  ctx.fillStyle = side;
+  ctx.fillRect(-R, -H + R, R * 2, H);
+  ctx.beginPath();
+  ctx.ellipse(0, R, R, R * 0.42, 0, 0, Math.PI);
+  ctx.fillStyle = "oklch(0.22 0.1 30)";
+  ctx.fill();
+
+  ctx.strokeStyle = "oklch(0.08 0.05 30 / 0.85)"; ctx.lineWidth = 1;
+  for (let i = -2; i <= 2; i++) {
+    const x = i * (R / 3);
     ctx.beginPath();
-    ctx.ellipse(3, b.radius, b.radius + 2, (b.radius + 2) * 0.45, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // orange spotlight rim under barrel — pops from floor
-    const rim = ctx.createRadialGradient(0, 0, b.radius, 0, 0, b.radius + 10);
-    rim.addColorStop(0, "oklch(0.75 0.2 45 / 0.35)");
-    rim.addColorStop(1, "transparent");
-    ctx.fillStyle = rim;
-    ctx.beginPath(); ctx.arc(0, 0, b.radius + 10, 0, Math.PI * 2); ctx.fill();
-    const bg = ctx.createRadialGradient(-4, -4, 3, 0, 0, b.radius);
-    bg.addColorStop(0, "oklch(0.68 0.18 50)");
-    bg.addColorStop(1, "oklch(0.28 0.12 30)");
-    ctx.fillStyle = bg;
-    ctx.beginPath();
-    ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
-    ctx.fill();
-    // staves
-    ctx.strokeStyle = "oklch(0.15 0.05 30 / 0.75)"; ctx.lineWidth = 1;
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * b.radius, Math.sin(a) * b.radius);
-      ctx.lineTo(0, 0);
-      ctx.stroke();
-    }
-    // iron ring
-    ctx.strokeStyle = "oklch(0.4 0.02 260)"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(0, 0, b.radius - 2, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = "oklch(0.7 0.02 260 / 0.6)"; ctx.lineWidth = 0.8;
-    ctx.beginPath(); ctx.arc(0, 0, b.radius - 2, -0.6, 0.2); ctx.stroke();
-    ctx.strokeStyle = "oklch(0.1 0.03 30)"; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(0, 0, b.radius, 0, Math.PI * 2); ctx.stroke();
-    // hazard rune
-    const glow = 0.5 + Math.sin(s.time * 0.008) * 0.5;
-    ctx.shadowColor = "oklch(0.95 0.22 60)"; ctx.shadowBlur = 12;
-    ctx.fillStyle = `oklch(0.95 0.22 70 / ${0.75 + glow * 0.25})`;
-    ctx.beginPath();
-    ctx.moveTo(0, -5); ctx.lineTo(4, 3); ctx.lineTo(-4, 3);
-    ctx.closePath();
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.restore();
+    ctx.moveTo(x, -H + R);
+    ctx.lineTo(x, R - 1);
+    ctx.stroke();
   }
+  for (const hy of [-H + R + 4, 0, R - 6]) {
+    ctx.strokeStyle = "oklch(0.16 0.02 260)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(0, hy, R, R * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = "oklch(0.75 0.02 260 / 0.7)"; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.ellipse(0, hy - 1, R, R * 0.42, 0, -0.5, 0.3); ctx.stroke();
+  }
+  ctx.strokeStyle = "oklch(0.05 0.03 30)"; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-R, -H + R); ctx.lineTo(-R, R - 1);
+  ctx.moveTo(R, -H + R); ctx.lineTo(R, R - 1);
+  ctx.stroke();
+
+  const cap = ctx.createRadialGradient(-R * 0.3, -H + R - 2, 2, 0, -H + R, R);
+  cap.addColorStop(0, "oklch(0.74 0.14 55)");
+  cap.addColorStop(1, "oklch(0.32 0.12 35)");
+  ctx.fillStyle = cap;
+  ctx.beginPath();
+  ctx.ellipse(0, -H + R, R, R * 0.42, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "oklch(0.06 0.05 30)"; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.strokeStyle = "oklch(0.2 0.08 30 / 0.6)"; ctx.lineWidth = 0.6;
+  for (const rr of [R * 0.35, R * 0.65]) {
+    ctx.beginPath(); ctx.ellipse(-1, -H + R, rr, rr * 0.42, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  const glow = 0.5 + Math.sin(time * 0.008) * 0.5;
+  ctx.shadowColor = "oklch(0.95 0.22 60)"; ctx.shadowBlur = 14;
+  ctx.fillStyle = `oklch(0.95 0.22 70 / ${0.8 + glow * 0.2})`;
+  ctx.beginPath();
+  ctx.moveTo(0, -6); ctx.lineTo(5, 4); ctx.lineTo(-5, 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
 }
 
 function drawTrail(ctx: CanvasRenderingContext2D, s: GameState) {
