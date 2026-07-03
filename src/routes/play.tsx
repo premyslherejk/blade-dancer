@@ -1680,12 +1680,13 @@ function render(ctx: CanvasRenderingContext2D, s: GameState, rect: DOMRect) {
 /* ---------- Environment ---------- */
 
 function drawFloor(ctx: CanvasRenderingContext2D, s: GameState) {
+  const camY = s.cameraY;
   // Deep pit backdrop
   ctx.fillStyle = "oklch(0.07 0.02 265)";
-  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  ctx.fillRect(0, camY, ARENA_W, ARENA_H);
 
   const cx = ARENA_W / 2;
-  const cy = ARENA_H / 2;
+  const cy = camY + ARENA_H / 2;
 
   // Warm overhead spotlight — big center pool of light, dramatic falloff
   const bg = ctx.createRadialGradient(cx, cy - 40, 20, cx, cy, Math.max(ARENA_W, ARENA_H) * 0.8);
@@ -1694,17 +1695,18 @@ function drawFloor(ctx: CanvasRenderingContext2D, s: GameState) {
   bg.addColorStop(0.75, "oklch(0.14 0.02 262)");
   bg.addColorStop(1, "oklch(0.06 0.02 262)");
   ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  ctx.fillRect(0, camY, ARENA_W, ARENA_H);
 
   // Isometric stone tile hint — diamond grid gives a subtle depth read
   ctx.save();
   ctx.strokeStyle = "oklch(0.05 0.01 262 / 0.32)";
   ctx.lineWidth = 1;
   const tile = 120;
-  ctx.translate(cx, cy);
+  // Anchor the tile pattern to the world (not the camera) so it scrolls with movement
+  ctx.translate(ARENA_W / 2, ARENA_H / 2);
   ctx.rotate(Math.PI / 4);
   ctx.beginPath();
-  const N = 14;
+  const N = 18;
   for (let i = -N; i <= N; i++) {
     ctx.moveTo(i * tile, -N * tile);
     ctx.lineTo(i * tile, N * tile);
@@ -1715,20 +1717,21 @@ function drawFloor(ctx: CanvasRenderingContext2D, s: GameState) {
   ctx.restore();
 
   // faint diagonal light streak — as if a shaft comes from top-left
-  const streak = ctx.createLinearGradient(0, 0, ARENA_W * 0.8, ARENA_H * 0.7);
+  const streak = ctx.createLinearGradient(0, camY, ARENA_W * 0.8, camY + ARENA_H * 0.7);
   streak.addColorStop(0, "oklch(0.9 0.1 70 / 0.06)");
   streak.addColorStop(0.5, "transparent");
   streak.addColorStop(1, "transparent");
   ctx.fillStyle = streak;
-  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  ctx.fillRect(0, camY, ARENA_W, ARENA_H);
 
   // Vignette — strong at edges, focuses attention on gameplay
   const vg = ctx.createRadialGradient(cx, cy, ARENA_W * 0.3, cx, cy, ARENA_W * 0.9);
   vg.addColorStop(0, "transparent");
   vg.addColorStop(1, "oklch(0.03 0.02 260 / 0.85)");
   ctx.fillStyle = vg;
-  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  ctx.fillRect(0, camY, ARENA_W, ARENA_H);
 }
+
 
 function drawFloorProps(ctx: CanvasRenderingContext2D, s: GameState) {
   for (const p of s.props) {
